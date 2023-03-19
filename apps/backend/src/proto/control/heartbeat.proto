@@ -4,3 +4,6 @@ package control.heartbeat;
 
 message HeartbeatRequest {
 }
+
+message HeartbeatResponse {
+}

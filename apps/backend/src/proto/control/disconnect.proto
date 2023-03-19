@@ -4,3 +4,6 @@ package control.disconnect;
 
 message DisconnectRequest {
 }
+
+message DisconnectResponse {
+}

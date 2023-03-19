@@ -5,9 +5,7 @@ pub struct ConfigService {
 }
 
 impl ConfigService {
-    pub fn new() -> Self {
-        ConfigService {
-            config: Config::new(),
-        }
+    pub fn new(config: Config) -> Self {
+        ConfigService { config }
     }
 }

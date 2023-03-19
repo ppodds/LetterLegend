@@ -1,15 +1,11 @@
-pub struct Config {
-    pub ip: String,
-    pub port: u32,
-}
+#[derive(Debug, Clone)]
+pub struct Config {}
 
 impl Config {
     pub fn new() -> Self {
-        Config {
-            ip: String::from(""),
-            port: 0,
-        }
+        Config {}
+    }
+    pub fn load() -> Self {
+        Config {}
     }
 }
-
-pub fn read_from_envfile() {}

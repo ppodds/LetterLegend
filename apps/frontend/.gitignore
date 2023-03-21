@@ -82,3 +82,5 @@ Assets/Scripts/Protos/*
 
 # Unity NuGet
 Assets/Packages/*
+
+.pdf

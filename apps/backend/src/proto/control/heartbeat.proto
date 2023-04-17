@@ -1,9 +1,8 @@
 syntax = "proto3";
 
 package control.heartbeat;
-
-message HeartbeatRequest {
-}
+option csharp_namespace = "Protos.Control";
 
 message HeartbeatResponse {
+    bool success = 1;
 }

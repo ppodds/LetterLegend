@@ -1,9 +1,8 @@
 syntax = "proto3";
 
 package control.disconnect;
-
-message DisconnectRequest {
-}
+option csharp_namespace = "Protos.Control";
 
 message DisconnectResponse {
+    bool success = 1;
 }

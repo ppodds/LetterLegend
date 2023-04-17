@@ -4,20 +4,54 @@ use crate::frame::Frame;
 use bytes::{Buf, BytesMut};
 use prost::Message;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, BufWriter},
+    io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
 };
 
+#[derive(Debug)]
 pub struct Connection {
-    stream: BufWriter<TcpStream>,
+    stream: TcpStream,
     buffer: BytesMut,
 }
 
 impl Connection {
     pub fn new(stream: TcpStream) -> Self {
         Connection {
-            stream: BufWriter::new(stream),
+            stream,
             buffer: BytesMut::with_capacity(4096),
+        }
+    }
+
+    pub fn try_read_frame(
+        &mut self,
+    ) -> Result<Option<Frame>, Box<dyn std::error::Error + Send + Sync>> {
+        // Attempt to parse a frame from the buffered data. If
+        // enough data has been buffered, the frame is
+        // returned.
+        if let Some(frame) = self.parse_frame()? {
+            return Ok(Some(frame));
+        }
+
+        let (mut reader, _) = self.stream.split();
+
+        // There is not enough buffered data to read a frame.
+        // Attempt to read more data from the socket.
+        //
+        // On success, the number of bytes is returned. `0`
+        // indicates "end of stream".
+        match reader.try_read_buf(&mut self.buffer) {
+            Ok(0) => {
+                // The remote closed the connection. For this to be
+                // a clean shutdown, there should be no data in the
+                // read buffer. If there is, this means that the
+                // peer closed the socket while sending a frame.
+                if self.buffer.is_empty() {
+                    return Err("connection safe closed".into());
+                } else {
+                    return Err("connection reset by peer".into());
+                }
+            }
+            Ok(_) | Err(_) => Ok(None),
         }
     }
 
@@ -32,12 +66,14 @@ impl Connection {
                 return Ok(Some(frame));
             }
 
+            let (mut reader, _) = self.stream.split();
+
             // There is not enough buffered data to read a frame.
             // Attempt to read more data from the socket.
             //
             // On success, the number of bytes is returned. `0`
             // indicates "end of stream".
-            if 0 == self.stream.read_buf(&mut self.buffer).await? {
+            if 0 == reader.read_buf(&mut self.buffer).await? {
                 // The remote closed the connection. For this to be
                 // a clean shutdown, there should be no data in the
                 // read buffer. If there is, this means that the
@@ -91,6 +127,11 @@ impl Connection {
         match frame {
             Frame::Response(res) => {
                 let mut buf = match res {
+                    crate::frame::Response::Connect(res) => {
+                        let mut buf = BytesMut::with_capacity(res.encoded_len());
+                        res.encode(&mut buf)?;
+                        buf
+                    }
                     crate::frame::Response::Disconnect(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
@@ -102,8 +143,9 @@ impl Connection {
                         buf
                     }
                 };
-
-                self.stream.write_buf(&mut buf).await?;
+                let (_, mut writer) = self.stream.split();
+                writer.write_u32_le(buf.len().try_into().unwrap()).await?;
+                writer.write_buf(&mut buf).await?;
                 Ok(())
             }
             _ => Err("not implemented".into()),

@@ -4,8 +4,8 @@ use bytes::Buf;
 use prost::Message;
 
 use crate::{
-    model::control::disconnect::DisconnectRequest, model::control::disconnect::DisconnectResponse,
-    model::control::heartbeat::HeartbeatRequest, model::control::heartbeat::HeartbeatResponse,
+    model::control::connect::ConnectRequest, model::control::connect::ConnectResponse,
+    model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
     operation::Operation,
 };
 
@@ -18,12 +18,14 @@ pub enum Frame {
 
 #[derive(Debug, Clone)]
 pub enum Request {
-    Disconnect(DisconnectRequest),
-    Heartbeat(HeartbeatRequest),
+    Connect(ConnectRequest),
+    Disconnect,
+    Heartbeat,
 }
 
 #[derive(Debug, Clone)]
 pub enum Response {
+    Connect(ConnectResponse),
     Disconnect(DisconnectResponse),
     Heartbeat(HeartbeatResponse),
 }
@@ -47,8 +49,9 @@ impl Frame {
         let payload_len = get_u32(src)?;
         let payload = src.take(payload_len as usize);
         let e = match op {
-            Operation::Disconnect => DisconnectRequest::decode(payload).err(),
-            Operation::Heartbeat => HeartbeatRequest::decode(payload).err(),
+            Operation::Connect => ConnectRequest::decode(payload).err(),
+            Operation::Disconnect => return Ok(()),
+            Operation::Heartbeat => return Ok(()),
         };
         if e.is_some() {
             return Err(Error::ProtobufDecodeFailed(e.unwrap()));
@@ -67,14 +70,12 @@ impl Frame {
         let payload_len = get_u32(src)?;
         let payload = src.take(payload_len as usize);
         match op {
-            Operation::Disconnect => match DisconnectRequest::decode(payload) {
-                Ok(req) => Ok(Frame::Request(Request::Disconnect(req))),
+            Operation::Connect => match ConnectRequest::decode(payload) {
+                Ok(req) => Ok(Frame::Request(Request::Connect(req))),
                 Err(e) => Err(Error::ProtobufDecodeFailed(e)),
             },
-            Operation::Heartbeat => match HeartbeatRequest::decode(payload) {
-                Ok(req) => Ok(Frame::Request(Request::Heartbeat(req))),
-                Err(e) => Err(Error::ProtobufDecodeFailed(e)),
-            },
+            Operation::Disconnect => Ok(Frame::Request(Request::Disconnect)),
+            Operation::Heartbeat => Ok(Frame::Request(Request::Heartbeat)),
         }
     }
 }

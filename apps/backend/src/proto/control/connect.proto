@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package control.connect;
+option csharp_namespace = "Protos.Control";
+
+message ConnectRequest {
+    string name = 1;
+}
+
+message ConnectResponse {
+    bool success = 1;
+}

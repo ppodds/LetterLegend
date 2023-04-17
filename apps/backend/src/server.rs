@@ -73,6 +73,7 @@ impl Server {
                                 .handle_request(
                                     client_id,
                                     tx.clone(),
+                                    #[cfg(not(test))]
                                     connection_receiver.clone(),
                                     req,
                                 )
@@ -110,6 +111,7 @@ impl Server {
         }
     }
 
+    #[cfg(not(test))]
     pub fn new(host: String, port: u32) -> Self {
         Server {
             player_timeout_queue: Arc::new(Mutex::new(PriorityQueue::new())),
@@ -121,11 +123,23 @@ impl Server {
         }
     }
 
+    #[cfg(test)]
+    pub fn new() -> Self {
+        Server {
+            player_timeout_queue: Arc::new(Mutex::new(PriorityQueue::new())),
+            host: String::from("0.0.0.0"),
+            port: 45678,
+            online_player_map: ClientMap::new(Mutex::new(HashMap::new())),
+            lobby_map: LobbyMap::new(Mutex::new(HashMap::new())),
+            game_map: GameMap::new(Mutex::new(HashMap::new())),
+        }
+    }
+
     async fn connect(
         &self,
         client_id: u32,
         name: String,
-        connection: Arc<Mutex<Connection>>,
+        #[cfg(not(test))] connection: Arc<Mutex<Connection>>,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         if self.online_player_map.lock().await.contains_key(&client_id) {
             return Err("client already connected".into());
@@ -133,8 +147,14 @@ impl Server {
 
         self.online_player_map.lock().await.insert(
             client_id,
-            Arc::new(Mutex::new(Player::new(client_id, name, connection))),
+            Arc::new(Mutex::new(Player::new(
+                client_id,
+                name,
+                #[cfg(not(test))]
+                connection,
+            ))),
         );
+
         self.player_timeout_queue
             .lock()
             .await
@@ -178,11 +198,19 @@ impl Server {
         &self,
         client_id: u32,
         tx: Sender<Frame>,
-        connection: Arc<Mutex<Connection>>,
+        #[cfg(not(test))] connection: Arc<Mutex<Connection>>,
         request: Request,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         match request {
-            Request::Connect(req) => match self.connect(client_id, req.name, connection).await {
+            Request::Connect(req) => match self
+                .connect(
+                    client_id,
+                    req.name,
+                    #[cfg(not(test))]
+                    connection,
+                )
+                .await
+            {
                 Ok(_) => {
                     tx.send(Frame::Response(Response::Connect(ConnectResponse {
                         success: true,
@@ -231,5 +259,41 @@ impl Server {
                 }
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn connect_with_test_user_online_player_map_should_include_test_user(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.connect(0, String::from("test")).await?;
+        let online_player_map = server.online_player_map.lock().await;
+        let player = online_player_map.get(&0).unwrap().lock().await;
+        assert_eq!(player.id, 0);
+        assert_eq!(player.name, String::from("test"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn connect_with_test_user_player_timeout_queue_should_include_test_user(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.connect(0, String::from("test")).await?;
+        let player_timeout_queue = server.player_timeout_queue.lock().await;
+        assert!(player_timeout_queue.get(&0).is_some());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn connect_with_test_user_who_already_connected_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.connect(0, String::from("test")).await?;
+        assert!(server.connect(0, String::from("test")).await.is_err());
+        Ok(())
     }
 }

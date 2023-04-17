@@ -8,6 +8,7 @@ use std::sync::Arc;
 pub struct Player {
     pub id: u32,
     pub name: String,
+    #[cfg(not(test))]
     pub connection: Arc<Mutex<Connection>>,
     pub lobby_id: Option<u32>,
     pub game_id: Option<u32>,
@@ -28,10 +29,15 @@ impl Hash for Player {
 }
 
 impl Player {
-    pub fn new(id: u32, name: String, connection: Arc<Mutex<Connection>>) -> Self {
+    pub fn new(
+        id: u32,
+        name: String,
+        #[cfg(not(test))] connection: Arc<Mutex<Connection>>,
+    ) -> Self {
         Player {
             id,
             name,
+            #[cfg(not(test))]
             connection,
             lobby_id: None,
             game_id: None,

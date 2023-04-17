@@ -1,15 +1,17 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
+
 public class GameController : MonoBehaviour
 {
 
     public GameObject tile;
-    public MouseEvent mouseEvent;
+    [FormerlySerializedAs("mouseEvent")] public MouseEventSystem mouseEventSystem;
     
     private void Awake()
     {
-        Instantiate(mouseEvent);
+        Instantiate(mouseEventSystem);
         ResetBlock();
     }
 

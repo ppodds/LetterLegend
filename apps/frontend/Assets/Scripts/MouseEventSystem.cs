@@ -3,20 +3,25 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
-
 public class MouseClickEvent : UnityEvent<Vector2>
 {
   
 }
 
+
 public class MouseDragEvent : UnityEvent<Vector2>
 {
   
 }
-public class MouseEvent : MonoBehaviour
+
+public class MouseUpEvent : UnityEvent<Vector2>
+{
+    
+}
+public class MouseEventSystem : MonoBehaviour
 {
     public MouseClickEvent MouseClickEvent = new MouseClickEvent();
-
+    public MouseUpEvent MouseUpEvent = new MouseUpEvent();
     public MouseDragEvent MouseDragEvent;
 
     private void Update()
@@ -25,10 +30,10 @@ public class MouseEvent : MonoBehaviour
         {
             MouseClickEvent.Invoke(Input.mousePosition);
         }
-        // else if (Input.GetMouseButtonUp(0))
-        // {
-        //     MouseEvent.Invoke(Input.mousePosition);
-        // }
+        else if (Input.GetMouseButtonUp(0))
+        {
+            MouseUpEvent.Invoke(Input.mousePosition);
+        }
     }
 
     private void Start()

@@ -3,6 +3,8 @@ using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Google.Protobuf;
+using Protos.Control;
 
 namespace IO.Net
 {
@@ -11,42 +13,74 @@ namespace IO.Net
         private readonly string _host;
         private readonly int _port;
 
+        private readonly TcpClient _client;
+
         public GameTcpClient(string host, int port)
         {
             _host = host;
             _port = port;
+
+            _client = new TcpClient();
         }
 
-        private async Task<byte[]> Rpc(byte procId, bool readResponse = true)
+        public async Task ConnectAsync(string name)
         {
-            return await Rpc(procId, Array.Empty<byte>(), readResponse);
+            await _client.ConnectAsync(_host, _port);
+            var req = new ConnectRequest()
+            {
+                Name = name
+            };
+            var stream = new MemoryStream();
+            req.WriteTo(new CodedOutputStream(stream));
+                
+            var res = ConnectResponse.Parser.ParseFrom(await Rpc(Operation.Connect, stream.ToArray()));
+            if (!res.Success)
+            {
+                throw new Exception("create player failed");
+            }
         }
 
-        private async Task<byte[]> Rpc(byte procId, byte[] data, bool readResponse = true,
+        public Task Reconnect()
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task Disconnect()
+        {
+            var res = DisconnectResponse.Parser.ParseFrom(await Rpc(Operation.Disconnect));
+            if (!res.Success)
+            {
+                throw new Exception("disconnect failed");
+            }
+            _client.Close();
+        }
+        
+        private async Task<byte[]> Rpc(Operation operation, bool readResponse = true)
+        {
+            return await Rpc(operation, Array.Empty<byte>(), readResponse);
+        }
+
+        private async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true,
             CancellationToken token = default)
         {
-            var client = new TcpClient();
-            await client.ConnectAsync(_host, _port);
-            await RpcCall(client, procId, data);
-            var result = readResponse ? await ReadRpcResponse(client, token) : null;
-            client.Close();
-            client.Dispose();
+            await RpcCall(operation, data);
+            var result = readResponse ? await ReadRpcResponse(token) : null;
             return result;
         }
 
-        private static async Task RpcCall(TcpClient client, byte procId, byte[] data)
+        private async Task RpcCall(Operation operation, byte[] data)
         {
-            var stream = client.GetStream();
+            var stream = _client.GetStream();
             var outputStream = new MemoryStream();
-            await outputStream.WriteAsync(new[] { procId });
+            await outputStream.WriteAsync(new byte[] { (byte)operation, 0, 0, 0 });
             await outputStream.WriteAsync(BitConverter.GetBytes(data.Length));
             await outputStream.WriteAsync(data);
             await stream.WriteAsync(outputStream.ToArray());
         }
 
-        private static async Task<byte[]> ReadRpcResponse(TcpClient client, CancellationToken token = default)
+        private async Task<byte[]> ReadRpcResponse(CancellationToken token = default)
         {
-            var stream = client.GetStream();
+            var stream = _client.GetStream();
             var buf = new byte[4];
             var n = await stream.ReadAsync(buf, token);
             token.ThrowIfCancellationRequested();

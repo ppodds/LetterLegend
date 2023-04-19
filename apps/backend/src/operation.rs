@@ -3,6 +3,7 @@ pub enum Operation {
     Connect,
     Disconnect,
     Heartbeat,
+    CreateLobby,
 }
 
 impl TryFrom<u8> for Operation {
@@ -12,6 +13,7 @@ impl TryFrom<u8> for Operation {
             0 => Ok(Operation::Connect),
             1 => Ok(Operation::Disconnect),
             2 => Ok(Operation::Heartbeat),
+            3 => Ok(Operation::CreateLobby),
             _ => Err("invalid operation".into()),
         }
     }

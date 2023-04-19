@@ -5,6 +5,8 @@ use std::time::Instant;
 
 use crate::connection::Connection;
 use crate::frame::{Frame, Request, Response};
+use crate::lobby::lobbies::Lobbies;
+use crate::lobby::lobby::Lobby;
 use crate::model::control::{
     connect::ConnectResponse, disconnect::DisconnectResponse, heartbeat::HeartbeatResponse,
 };
@@ -20,7 +22,7 @@ pub struct Server {
     host: String,
     port: u32,
     online_player_map: ClientMap,
-    lobby_map: LobbyMap,
+    lobbies: Arc<Mutex<Lobbies>>,
     game_map: GameMap,
 }
 
@@ -30,7 +32,6 @@ pub struct Context {
 }
 
 type ClientMap = Arc<Mutex<HashMap<u32, Arc<Mutex<Player>>>>>;
-type LobbyMap = Arc<Mutex<HashMap<u32, Arc<Mutex<Vec<u32>>>>>>;
 type GameMap = Arc<Mutex<HashMap<u32, Arc<Mutex<Vec<u32>>>>>>;
 
 unsafe impl Send for Server {}
@@ -118,7 +119,7 @@ impl Server {
             host,
             port,
             online_player_map: ClientMap::new(Mutex::new(HashMap::new())),
-            lobby_map: LobbyMap::new(Mutex::new(HashMap::new())),
+            lobbies: Arc::new(Mutex::new(Lobbies::new())),
             game_map: GameMap::new(Mutex::new(HashMap::new())),
         }
     }
@@ -130,7 +131,7 @@ impl Server {
             host: String::from("0.0.0.0"),
             port: 45678,
             online_player_map: ClientMap::new(Mutex::new(HashMap::new())),
-            lobby_map: LobbyMap::new(Mutex::new(HashMap::new())),
+            lobbies: Arc::new(Mutex::new(Lobbies::new())),
             game_map: GameMap::new(Mutex::new(HashMap::new())),
         }
     }
@@ -169,8 +170,15 @@ impl Server {
                 let player = player.lock().await;
                 self.player_timeout_queue.lock().await.remove(&client_id);
                 if player.lobby_id.is_some() {
-                    let lobby = self.lobby_map.lock().await[&player.lobby_id.unwrap()].clone();
-                    lobby.lock().await.retain(|&x| x != client_id);
+                    let lobby = self
+                        .lobbies
+                        .clone()
+                        .lock()
+                        .await
+                        .get_lobby(player.lobby_id.unwrap())
+                        .await
+                        .unwrap();
+                    lobby.lock().await.remove_player(player.id).await;
                 }
                 if player.game_id.is_some() {
                     let game = self.game_map.lock().await[&player.game_id.unwrap()].clone();
@@ -192,6 +200,16 @@ impl Server {
             Some(_) => Ok(()),
             None => Err("Player not found")?,
         }
+    }
+
+    async fn create_lobby(
+        &self,
+        client_id: u32,
+    ) -> Result<Arc<Mutex<Lobby>>, Box<dyn Error + Sync + Send>> {
+        let lobby = self.lobbies.lock().await.create_lobby().await;
+        let player = self.online_player_map.lock().await[&client_id].clone();
+        lobby.lock().await.add_player(player).await;
+        Ok(lobby.clone())
     }
 
     async fn handle_request(
@@ -258,6 +276,28 @@ impl Server {
                     Err(e)
                 }
             },
+            Request::CreateLobby => match self.create_lobby(client_id).await {
+                Ok(lobby) => {
+                    tx.send(Frame::Response(Response::CreateLobby(
+                        crate::model::lobby::create::CreateResponse {
+                            success: true,
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from_lobby(lobby).await),
+                        },
+                    )))
+                    .await?;
+                    Ok(())
+                }
+                Err(e) => {
+                    tx.send(Frame::Response(Response::CreateLobby(
+                        crate::model::lobby::create::CreateResponse {
+                            success: false,
+                            lobby: None,
+                        },
+                    )))
+                    .await?;
+                    Err(e)
+                }
+            },
         }
     }
 }
@@ -294,6 +334,70 @@ mod tests {
         let server = Server::new();
         server.connect(0, String::from("test")).await?;
         assert!(server.connect(0, String::from("test")).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn disconnect_with_user_already_connected_should_be_removed(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        server
+            .player_timeout_queue
+            .lock()
+            .await
+            .push(0, Instant::now());
+        server.disconnect(0).await?;
+        assert!(server.online_player_map.lock().await.len() == 0);
+        assert!(server.player_timeout_queue.lock().await.len() == 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn disconnect_with_user_not_exist_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        assert!(server.disconnect(0).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn create_lobby_with_test_user_should_create_lobby(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        server.create_lobby(0).await?;
+        assert!(server.lobbies.lock().await.get_lobby(0).await.is_some());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn create_lobby_with_test_user_should_contains_test_user(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        server.create_lobby(0).await?;
+        assert!(server
+            .lobbies
+            .lock()
+            .await
+            .get_lobby(0)
+            .await
+            .unwrap()
+            .lock()
+            .await
+            .get_player(0)
+            .await
+            .is_some());
         Ok(())
     }
 }

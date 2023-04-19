@@ -1,8 +1,10 @@
-use tokio::sync::Mutex;
-
+#[cfg(not(test))]
 use crate::connection::Connection;
 use core::hash::{Hash, Hasher};
+#[cfg(not(test))]
 use std::sync::Arc;
+#[cfg(not(test))]
+use tokio::sync::Mutex;
 
 #[derive(Debug)]
 pub struct Player {

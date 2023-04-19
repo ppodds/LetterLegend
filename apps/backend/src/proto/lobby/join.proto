@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package lobby.join;
+option csharp_namespace = "Protos.Lobby";
+
+import "lobby/lobby.proto";
+
+message JoinRequest {
+    uint32 lobbyId = 1;
+}
+
+message JoinResponse {
+    bool success = 1;
+    optional lobby.Lobby lobby = 2;
+}
+

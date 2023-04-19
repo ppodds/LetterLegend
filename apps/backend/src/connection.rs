@@ -32,7 +32,7 @@ impl Connection {
             return Ok(Some(frame));
         }
 
-        let (mut reader, _) = self.stream.split();
+        let (reader, _) = self.stream.split();
 
         // There is not enough buffered data to read a frame.
         // Attempt to read more data from the socket.
@@ -138,6 +138,11 @@ impl Connection {
                         buf
                     }
                     crate::frame::Response::Heartbeat(res) => {
+                        let mut buf = BytesMut::with_capacity(res.encoded_len());
+                        res.encode(&mut buf)?;
+                        buf
+                    }
+                    crate::frame::Response::CreateLobby(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf

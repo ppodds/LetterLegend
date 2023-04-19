@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package lobby.quit;
+option csharp_namespace = "Protos.Lobby";
+
+message QuitResponse {
+    bool success = 1;
+}

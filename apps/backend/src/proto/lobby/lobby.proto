@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package lobby.lobby;
+option csharp_namespace = "Protos.Lobby";
+
+import "player/player.proto";
+
+message Lobby {
+    uint32 id = 1;
+    repeated player.player.Player players = 2;
+}

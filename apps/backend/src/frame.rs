@@ -6,7 +6,7 @@ use prost::Message;
 use crate::{
     model::control::connect::ConnectRequest, model::control::connect::ConnectResponse,
     model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
-    operation::Operation,
+    model::lobby::create::CreateResponse, operation::Operation,
 };
 
 #[derive(Debug)]
@@ -21,6 +21,7 @@ pub enum Request {
     Connect(ConnectRequest),
     Disconnect,
     Heartbeat,
+    CreateLobby,
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +29,7 @@ pub enum Response {
     Connect(ConnectResponse),
     Disconnect(DisconnectResponse),
     Heartbeat(HeartbeatResponse),
+    CreateLobby(CreateResponse),
 }
 
 #[derive(Debug)]
@@ -52,6 +54,7 @@ impl Frame {
             Operation::Connect => ConnectRequest::decode(payload).err(),
             Operation::Disconnect => return Ok(()),
             Operation::Heartbeat => return Ok(()),
+            Operation::CreateLobby => return Ok(()),
         };
         if e.is_some() {
             return Err(Error::ProtobufDecodeFailed(e.unwrap()));
@@ -76,6 +79,7 @@ impl Frame {
             },
             Operation::Disconnect => Ok(Frame::Request(Request::Disconnect)),
             Operation::Heartbeat => Ok(Frame::Request(Request::Heartbeat)),
+            Operation::CreateLobby => Ok(Frame::Request(Request::CreateLobby)),
         }
     }
 }

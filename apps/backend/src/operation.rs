@@ -4,6 +4,7 @@ pub enum Operation {
     Disconnect,
     Heartbeat,
     CreateLobby,
+    JoinLobby,
 }
 
 impl TryFrom<u8> for Operation {
@@ -14,6 +15,7 @@ impl TryFrom<u8> for Operation {
             1 => Ok(Operation::Disconnect),
             2 => Ok(Operation::Heartbeat),
             3 => Ok(Operation::CreateLobby),
+            4 => Ok(Operation::JoinLobby),
             _ => Err("invalid operation".into()),
         }
     }

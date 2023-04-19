@@ -207,9 +207,40 @@ impl Server {
         client_id: u32,
     ) -> Result<Arc<Mutex<Lobby>>, Box<dyn Error + Sync + Send>> {
         let lobby = self.lobbies.lock().await.create_lobby().await;
-        let player = self.online_player_map.lock().await[&client_id].clone();
-        lobby.lock().await.add_player(player).await;
-        Ok(lobby.clone())
+        let players = self.online_player_map.lock().await;
+        let player = players.get(&client_id);
+        if player.is_none() {
+            return Err("Player not found".into());
+        }
+        lobby.lock().await.add_player(player.unwrap().clone()).await;
+        Ok(lobby)
+    }
+
+    async fn join_lobby(
+        &self,
+        client_id: u32,
+        lobby_id: u32,
+    ) -> Result<Arc<Mutex<Lobby>>, Box<dyn Error + Sync + Send>> {
+        let lobby = self.lobbies.clone().lock().await.get_lobby(lobby_id).await;
+
+        if lobby.is_none() {
+            return Err("Lobby not found".into());
+        }
+
+        let players = self.online_player_map.lock().await;
+        let player = players.get(&client_id);
+
+        if player.is_none() {
+            return Err("Player not found".into());
+        }
+
+        let ret = lobby.unwrap().clone();
+        ret.clone()
+            .lock()
+            .await
+            .add_player(player.unwrap().clone())
+            .await;
+        Ok(ret)
     }
 
     async fn handle_request(
@@ -298,6 +329,28 @@ impl Server {
                     Err(e)
                 }
             },
+            Request::JoinLobby(req) => match self.join_lobby(client_id, req.lobby_id).await {
+                Ok(res) => {
+                    tx.send(Frame::Response(Response::JoinLobby(
+                        crate::model::lobby::join::JoinResponse {
+                            success: true,
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from_lobby(res).await),
+                        },
+                    )))
+                    .await?;
+                    Ok(())
+                }
+                Err(e) => {
+                    tx.send(Frame::Response(Response::JoinLobby(
+                        crate::model::lobby::join::JoinResponse {
+                            success: false,
+                            lobby: None,
+                        },
+                    )))
+                    .await?;
+                    Err(e)
+                }
+            },
         }
     }
 }
@@ -378,6 +431,14 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn create_lobby_with_not_exist_user_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        assert!(server.create_lobby(0).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn create_lobby_with_test_user_should_contains_test_user(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
@@ -398,6 +459,64 @@ mod tests {
             .get_player(0)
             .await
             .is_some());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn join_lobby_with_test_user_and_test_lobby_should_join_lobby(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        server.create_lobby(0).await?;
+        server.join_lobby(0, 0).await?;
+        assert!(server
+            .lobbies
+            .lock()
+            .await
+            .get_lobby(0)
+            .await
+            .unwrap()
+            .lock()
+            .await
+            .get_player(0)
+            .await
+            .is_some());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn join_lobby_with_not_exist_user_and_test_lobby_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        server.create_lobby(0).await?;
+        assert!(server.join_lobby(1, 0).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn join_lobby_with_test_user_and_not_exist_lobby_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        assert!(server.join_lobby(0, 0).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn join_lobby_with_not_exist_user_and_not_exist_lobby_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        assert!(server.join_lobby(0, 0).await.is_err());
         Ok(())
     }
 }

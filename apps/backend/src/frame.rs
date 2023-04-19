@@ -6,7 +6,8 @@ use prost::Message;
 use crate::{
     model::control::connect::ConnectRequest, model::control::connect::ConnectResponse,
     model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
-    model::lobby::create::CreateResponse, operation::Operation,
+    model::lobby::create::CreateResponse, model::lobby::join::JoinRequest,
+    model::lobby::join::JoinResponse, operation::Operation,
 };
 
 #[derive(Debug)]
@@ -22,6 +23,7 @@ pub enum Request {
     Disconnect,
     Heartbeat,
     CreateLobby,
+    JoinLobby(JoinRequest),
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +32,7 @@ pub enum Response {
     Disconnect(DisconnectResponse),
     Heartbeat(HeartbeatResponse),
     CreateLobby(CreateResponse),
+    JoinLobby(JoinResponse),
 }
 
 #[derive(Debug)]
@@ -55,6 +58,7 @@ impl Frame {
             Operation::Disconnect => return Ok(()),
             Operation::Heartbeat => return Ok(()),
             Operation::CreateLobby => return Ok(()),
+            Operation::JoinLobby => JoinRequest::decode(payload).err(),
         };
         if e.is_some() {
             return Err(Error::ProtobufDecodeFailed(e.unwrap()));
@@ -80,6 +84,10 @@ impl Frame {
             Operation::Disconnect => Ok(Frame::Request(Request::Disconnect)),
             Operation::Heartbeat => Ok(Frame::Request(Request::Heartbeat)),
             Operation::CreateLobby => Ok(Frame::Request(Request::CreateLobby)),
+            Operation::JoinLobby => match JoinRequest::decode(payload) {
+                Ok(req) => Ok(Frame::Request(Request::JoinLobby(req))),
+                Err(e) => Err(Error::ProtobufDecodeFailed(e)),
+            },
         }
     }
 }

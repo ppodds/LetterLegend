@@ -212,8 +212,16 @@ impl Server {
         if player.is_none() {
             return Err("Player not found".into());
         }
-        lobby.lock().await.add_player(player.unwrap().clone()).await;
-        Ok(lobby)
+        match lobby
+            .clone()
+            .lock()
+            .await
+            .add_player(player.unwrap().clone())
+            .await
+        {
+            Ok(_) => Ok(lobby),
+            Err(e) => Err(e),
+        }
     }
 
     async fn join_lobby(
@@ -234,13 +242,17 @@ impl Server {
             return Err("Player not found".into());
         }
 
-        let ret = lobby.unwrap().clone();
-        ret.clone()
+        let lobby = lobby.unwrap().clone();
+        match lobby
+            .clone()
             .lock()
             .await
             .add_player(player.unwrap().clone())
-            .await;
-        Ok(ret)
+            .await
+        {
+            Ok(_) => Ok(lobby),
+            Err(e) => return Err(e),
+        }
     }
 
     async fn handle_request(
@@ -470,7 +482,7 @@ mod tests {
             0,
             Arc::new(Mutex::new(Player::new(0, String::from("test")))),
         );
-        server.create_lobby(0).await?;
+        server.lobbies.lock().await.create_lobby().await;
         server.join_lobby(0, 0).await?;
         assert!(server
             .lobbies

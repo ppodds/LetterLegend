@@ -1,4 +1,5 @@
 use crate::player::Player;
+use std::error::Error;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -16,11 +17,20 @@ impl Lobby {
         }
     }
 
-    pub async fn add_player(&self, player: Arc<Mutex<Player>>) {
+    pub async fn add_player(
+        &self,
+        player: Arc<Mutex<Player>>,
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        if player.lock().await.lobby_id.is_some() {
+            return Err("player already in a lobby".into());
+        }
+
+        player.lock().await.lobby_id = Some(self.id);
         self.players
             .lock()
             .await
             .insert(player.lock().await.id, player.clone());
+        Ok(())
     }
 
     pub async fn get_player(&self, id: u32) -> Option<Arc<Mutex<Player>>> {
@@ -32,7 +42,13 @@ impl Lobby {
     }
 
     pub async fn remove_player(&self, id: u32) -> Option<Arc<Mutex<Player>>> {
-        self.players.lock().await.remove(&id)
+        let player = self.players.lock().await.remove(&id);
+
+        if let Some(player) = player.clone() {
+            player.lock().await.lobby_id = None;
+        }
+
+        player
     }
 
     pub fn get_id(&self) -> u32 {
@@ -55,10 +71,21 @@ mod tests {
     async fn add_player_with_test_player_should_be_added() -> Result<(), Box<dyn std::error::Error>>
     {
         let lobby = Lobby::new(0);
-        lobby
-            .add_player(Arc::new(Mutex::new(Player::new(0, "test".to_string()))))
-            .await;
+        let player = Arc::new(Mutex::new(Player::new(0, "test".to_string())));
+        let result = lobby.add_player(player.clone()).await;
+        assert!(result.is_ok());
         assert!(lobby.players.lock().await.get(&0).is_some());
+        assert_eq!(player.lock().await.lobby_id.unwrap(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn add_player_with_test_player_already_in_lobby_should_return_error(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let lobby = Lobby::new(0);
+        let player = Arc::new(Mutex::new(Player::new(0, "test".to_string())));
+        player.lock().await.lobby_id = Some(1);
+        assert!(lobby.add_player(player).await.is_err());
         Ok(())
     }
 
@@ -113,8 +140,9 @@ mod tests {
             Arc::new(Mutex::new(Player::new(0, format!("test{}", 0)))),
         );
 
-        lobby.remove_player(0).await;
+        let player = lobby.remove_player(0).await;
         assert_eq!(lobby.players.lock().await.len(), 0);
+        assert!(player.unwrap().lock().await.lobby_id.is_none());
         Ok(())
     }
 

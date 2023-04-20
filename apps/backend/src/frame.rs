@@ -7,7 +7,7 @@ use crate::{
     model::control::connect::ConnectRequest, model::control::connect::ConnectResponse,
     model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
     model::lobby::create::CreateResponse, model::lobby::join::JoinRequest,
-    model::lobby::join::JoinResponse, operation::Operation,
+    model::lobby::join::JoinResponse, model::lobby::quit::QuitResponse, operation::Operation,
 };
 
 #[derive(Debug)]
@@ -24,6 +24,7 @@ pub enum Request {
     Heartbeat,
     CreateLobby,
     JoinLobby(JoinRequest),
+    QuitLobby,
 }
 
 #[derive(Debug, Clone)]
@@ -33,6 +34,7 @@ pub enum Response {
     Heartbeat(HeartbeatResponse),
     CreateLobby(CreateResponse),
     JoinLobby(JoinResponse),
+    QuitLobby(QuitResponse),
 }
 
 #[derive(Debug)]
@@ -59,6 +61,7 @@ impl Frame {
             Operation::Heartbeat => return Ok(()),
             Operation::CreateLobby => return Ok(()),
             Operation::JoinLobby => JoinRequest::decode(payload).err(),
+            Operation::QuitLobby => return Ok(()),
         };
         if e.is_some() {
             return Err(Error::ProtobufDecodeFailed(e.unwrap()));
@@ -88,6 +91,7 @@ impl Frame {
                 Ok(req) => Ok(Frame::Request(Request::JoinLobby(req))),
                 Err(e) => Err(Error::ProtobufDecodeFailed(e)),
             },
+            Operation::QuitLobby => Ok(Frame::Request(Request::QuitLobby)),
         }
     }
 }

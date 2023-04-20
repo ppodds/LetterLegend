@@ -255,6 +255,36 @@ impl Server {
         }
     }
 
+    async fn quit_lobby(&self, client_id: u32) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let players = self.online_player_map.lock().await;
+        let player = players.get(&client_id);
+
+        if player.is_none() {
+            return Err("Player not found".into());
+        }
+
+        let lobby_id = player.unwrap().lock().await.lobby_id;
+
+        if lobby_id.is_none() {
+            return Err("Player not in lobby".into());
+        }
+
+        let lobby = self
+            .lobbies
+            .clone()
+            .lock()
+            .await
+            .get_lobby(lobby_id.unwrap())
+            .await;
+
+        if lobby.is_none() {
+            return Err("Lobby not found".into());
+        }
+
+        lobby.unwrap().lock().await.remove_player(client_id).await;
+        Ok(())
+    }
+
     async fn handle_request(
         &self,
         client_id: u32,
@@ -358,6 +388,23 @@ impl Server {
                             success: false,
                             lobby: None,
                         },
+                    )))
+                    .await?;
+                    Err(e)
+                }
+            },
+
+            Request::QuitLobby => match self.quit_lobby(client_id).await {
+                Ok(_) => {
+                    tx.send(Frame::Response(Response::QuitLobby(
+                        crate::model::lobby::quit::QuitResponse { success: true },
+                    )))
+                    .await?;
+                    Ok(())
+                }
+                Err(e) => {
+                    tx.send(Frame::Response(Response::QuitLobby(
+                        crate::model::lobby::quit::QuitResponse { success: false },
                     )))
                     .await?;
                     Err(e)
@@ -529,6 +576,64 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
         assert!(server.join_lobby(0, 0).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn quit_lobby_with_test_user_in_test_lobby_should_quit_lobby(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        let lobby = server.lobbies.lock().await.create_lobby().await;
+        let player = Arc::new(Mutex::new(Player::new(0, String::from("test"))));
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, player.clone());
+        lobby.lock().await.add_player(player).await?;
+        server.quit_lobby(0).await?;
+        assert!(server
+            .lobbies
+            .lock()
+            .await
+            .get_lobby(0)
+            .await
+            .unwrap()
+            .lock()
+            .await
+            .get_player(0)
+            .await
+            .is_none());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn quit_lobby_with_not_exist_user_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        assert!(server.quit_lobby(0).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn quit_lobby_with_test_user_but_not_in_lobby_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        let player = Arc::new(Mutex::new(Player::new(0, String::from("test"))));
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, player.clone());
+        assert!(server.quit_lobby(0).await.is_err());
         Ok(())
     }
 }

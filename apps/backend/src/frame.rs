@@ -6,8 +6,9 @@ use prost::Message;
 use crate::{
     model::control::connect::ConnectRequest, model::control::connect::ConnectResponse,
     model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
-    model::lobby::create::CreateResponse, model::lobby::join::JoinRequest,
-    model::lobby::join::JoinResponse, model::lobby::quit::QuitResponse, operation::Operation,
+    model::lobby::create::CreateRequest, model::lobby::create::CreateResponse,
+    model::lobby::join::JoinRequest, model::lobby::join::JoinResponse,
+    model::lobby::list::ListResponse, model::lobby::quit::QuitResponse, operation::Operation,
 };
 
 #[derive(Debug)]
@@ -22,9 +23,10 @@ pub enum Request {
     Connect(ConnectRequest),
     Disconnect,
     Heartbeat,
-    CreateLobby,
+    CreateLobby(CreateRequest),
     JoinLobby(JoinRequest),
     QuitLobby,
+    ListLobby,
 }
 
 #[derive(Debug, Clone)]
@@ -35,6 +37,7 @@ pub enum Response {
     CreateLobby(CreateResponse),
     JoinLobby(JoinResponse),
     QuitLobby(QuitResponse),
+    ListLobby(ListResponse),
 }
 
 #[derive(Debug)]
@@ -59,9 +62,10 @@ impl Frame {
             Operation::Connect => ConnectRequest::decode(payload).err(),
             Operation::Disconnect => return Ok(()),
             Operation::Heartbeat => return Ok(()),
-            Operation::CreateLobby => return Ok(()),
+            Operation::CreateLobby => CreateRequest::decode(payload).err(),
             Operation::JoinLobby => JoinRequest::decode(payload).err(),
             Operation::QuitLobby => return Ok(()),
+            Operation::ListLobby => return Ok(()),
         };
         if e.is_some() {
             return Err(Error::ProtobufDecodeFailed(e.unwrap()));
@@ -86,12 +90,16 @@ impl Frame {
             },
             Operation::Disconnect => Ok(Frame::Request(Request::Disconnect)),
             Operation::Heartbeat => Ok(Frame::Request(Request::Heartbeat)),
-            Operation::CreateLobby => Ok(Frame::Request(Request::CreateLobby)),
+            Operation::CreateLobby => match CreateRequest::decode(payload) {
+                Ok(req) => Ok(Frame::Request(Request::CreateLobby(req))),
+                Err(e) => Err(Error::ProtobufDecodeFailed(e)),
+            },
             Operation::JoinLobby => match JoinRequest::decode(payload) {
                 Ok(req) => Ok(Frame::Request(Request::JoinLobby(req))),
                 Err(e) => Err(Error::ProtobufDecodeFailed(e)),
             },
             Operation::QuitLobby => Ok(Frame::Request(Request::QuitLobby)),
+            Operation::ListLobby => Ok(Frame::Request(Request::ListLobby)),
         }
     }
 }

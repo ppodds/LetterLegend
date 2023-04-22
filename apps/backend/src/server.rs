@@ -10,6 +10,7 @@ use crate::lobby::lobby::Lobby;
 use crate::model::control::{
     connect::ConnectResponse, disconnect::DisconnectResponse, heartbeat::HeartbeatResponse,
 };
+use crate::model::lobby::list::LobbyInfos;
 use crate::player::Player;
 use priority_queue::PriorityQueue;
 use tokio::net::TcpListener;
@@ -205,8 +206,13 @@ impl Server {
     async fn create_lobby(
         &self,
         client_id: u32,
+        max_players: u32,
     ) -> Result<Arc<Mutex<Lobby>>, Box<dyn Error + Sync + Send>> {
-        let lobby = self.lobbies.lock().await.create_lobby().await;
+        if max_players < 4 || max_players > 8 {
+            return Err("Invalid max players".into());
+        }
+
+        let lobby = self.lobbies.lock().await.create_lobby(max_players).await;
         let players = self.online_player_map.lock().await;
         let player = players.get(&client_id);
         if player.is_none() {
@@ -285,6 +291,10 @@ impl Server {
         Ok(())
     }
 
+    async fn list_lobby(&self) -> Result<LobbyInfos, Box<dyn Error + Sync + Send>> {
+        Ok(LobbyInfos::from_lobbies(self.lobbies.clone()).await)
+    }
+
     async fn handle_request(
         &self,
         client_id: u32,
@@ -349,28 +359,32 @@ impl Server {
                     Err(e)
                 }
             },
-            Request::CreateLobby => match self.create_lobby(client_id).await {
-                Ok(lobby) => {
-                    tx.send(Frame::Response(Response::CreateLobby(
-                        crate::model::lobby::create::CreateResponse {
-                            success: true,
-                            lobby: Some(crate::model::lobby::lobby::Lobby::from_lobby(lobby).await),
-                        },
-                    )))
-                    .await?;
-                    Ok(())
+            Request::CreateLobby(req) => {
+                match self.create_lobby(client_id, req.max_players).await {
+                    Ok(lobby) => {
+                        tx.send(Frame::Response(Response::CreateLobby(
+                            crate::model::lobby::create::CreateResponse {
+                                success: true,
+                                lobby: Some(
+                                    crate::model::lobby::lobby::Lobby::from_lobby(lobby).await,
+                                ),
+                            },
+                        )))
+                        .await?;
+                        Ok(())
+                    }
+                    Err(e) => {
+                        tx.send(Frame::Response(Response::CreateLobby(
+                            crate::model::lobby::create::CreateResponse {
+                                success: false,
+                                lobby: None,
+                            },
+                        )))
+                        .await?;
+                        Err(e)
+                    }
                 }
-                Err(e) => {
-                    tx.send(Frame::Response(Response::CreateLobby(
-                        crate::model::lobby::create::CreateResponse {
-                            success: false,
-                            lobby: None,
-                        },
-                    )))
-                    .await?;
-                    Err(e)
-                }
-            },
+            }
             Request::JoinLobby(req) => match self.join_lobby(client_id, req.lobby_id).await {
                 Ok(res) => {
                     tx.send(Frame::Response(Response::JoinLobby(
@@ -393,7 +407,6 @@ impl Server {
                     Err(e)
                 }
             },
-
             Request::QuitLobby => match self.quit_lobby(client_id).await {
                 Ok(_) => {
                     tx.send(Frame::Response(Response::QuitLobby(
@@ -405,6 +418,28 @@ impl Server {
                 Err(e) => {
                     tx.send(Frame::Response(Response::QuitLobby(
                         crate::model::lobby::quit::QuitResponse { success: false },
+                    )))
+                    .await?;
+                    Err(e)
+                }
+            },
+            Request::ListLobby => match self.list_lobby().await {
+                Ok(res) => {
+                    tx.send(Frame::Response(Response::ListLobby(
+                        crate::model::lobby::list::ListResponse {
+                            success: true,
+                            lobby_infos: Some(res),
+                        },
+                    )))
+                    .await?;
+                    Ok(())
+                }
+                Err(e) => {
+                    tx.send(Frame::Response(Response::ListLobby(
+                        crate::model::lobby::list::ListResponse {
+                            success: false,
+                            lobby_infos: None,
+                        },
                     )))
                     .await?;
                     Err(e)
@@ -484,8 +519,21 @@ mod tests {
             0,
             Arc::new(Mutex::new(Player::new(0, String::from("test")))),
         );
-        server.create_lobby(0).await?;
+        server.create_lobby(0, 4).await?;
         assert!(server.lobbies.lock().await.get_lobby(0).await.is_some());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn create_lobby_with_test_user_and_invaild_max_players_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        assert!(server.create_lobby(0, 3).await.is_err());
+        assert!(server.create_lobby(0, 9).await.is_err());
         Ok(())
     }
 
@@ -493,7 +541,7 @@ mod tests {
     async fn create_lobby_with_not_exist_user_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        assert!(server.create_lobby(0).await.is_err());
+        assert!(server.create_lobby(0, 4).await.is_err());
         Ok(())
     }
 
@@ -505,7 +553,7 @@ mod tests {
             0,
             Arc::new(Mutex::new(Player::new(0, String::from("test")))),
         );
-        server.create_lobby(0).await?;
+        server.create_lobby(0, 4).await?;
         assert!(server
             .lobbies
             .lock()
@@ -529,7 +577,7 @@ mod tests {
             0,
             Arc::new(Mutex::new(Player::new(0, String::from("test")))),
         );
-        server.lobbies.lock().await.create_lobby().await;
+        server.lobbies.lock().await.create_lobby(4).await;
         server.join_lobby(0, 0).await?;
         assert!(server
             .lobbies
@@ -554,7 +602,7 @@ mod tests {
             0,
             Arc::new(Mutex::new(Player::new(0, String::from("test")))),
         );
-        server.create_lobby(0).await?;
+        server.create_lobby(0, 4).await?;
         assert!(server.join_lobby(1, 0).await.is_err());
         Ok(())
     }
@@ -587,7 +635,7 @@ mod tests {
             0,
             Arc::new(Mutex::new(Player::new(0, String::from("test")))),
         );
-        let lobby = server.lobbies.lock().await.create_lobby().await;
+        let lobby = server.lobbies.lock().await.create_lobby(4).await;
         let player = Arc::new(Mutex::new(Player::new(0, String::from("test"))));
         server
             .online_player_map
@@ -634,6 +682,16 @@ mod tests {
             .await
             .insert(0, player.clone());
         assert!(server.quit_lobby(0).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn list_lobby_with_test_looby_should_return_test_lobby(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server.lobbies.lock().await.create_lobby(4).await;
+        let lobby_list = server.list_lobby().await?;
+        assert_eq!(lobby_list.lobby_infos.len(), 1);
         Ok(())
     }
 }

@@ -18,8 +18,8 @@ impl Lobbies {
         }
     }
 
-    pub async fn create_lobby(&mut self) -> Arc<Mutex<Lobby>> {
-        let lobby = Arc::new(Mutex::new(Lobby::new(self.next_lobby_id)));
+    pub async fn create_lobby(&mut self, max_players: u32) -> Arc<Mutex<Lobby>> {
+        let lobby = Arc::new(Mutex::new(Lobby::new(self.next_lobby_id, max_players)));
         let ret = lobby.clone();
         self.lobbies.lock().await.insert(self.next_lobby_id, lobby);
         self.next_lobby_id += 1;
@@ -33,6 +33,10 @@ impl Lobbies {
     pub async fn remove_lobby(&self, id: u32) -> Option<Arc<Mutex<Lobby>>> {
         self.lobbies.lock().await.remove(&id)
     }
+
+    pub async fn get_lobbies(&self) -> Vec<Arc<Mutex<Lobby>>> {
+        self.lobbies.lock().await.values().cloned().collect()
+    }
 }
 
 #[cfg(test)]
@@ -42,7 +46,7 @@ mod tests {
     #[tokio::test]
     async fn create_lobby_should_create_lobby() -> Result<(), Box<dyn std::error::Error>> {
         let mut lobbies = Lobbies::new();
-        lobbies.create_lobby().await;
+        lobbies.create_lobby(4).await;
         assert!(lobbies.lobbies.lock().await.get(&0).is_some());
         Ok(())
     }
@@ -55,7 +59,7 @@ mod tests {
             .lobbies
             .lock()
             .await
-            .insert(0, Arc::new(Mutex::new(Lobby::new(0))));
+            .insert(0, Arc::new(Mutex::new(Lobby::new(0, 4))));
         assert!(lobbies.get_lobby(0).await.is_some());
         Ok(())
     }
@@ -76,7 +80,7 @@ mod tests {
             .lobbies
             .lock()
             .await
-            .insert(0, Arc::new(Mutex::new(Lobby::new(0))));
+            .insert(0, Arc::new(Mutex::new(Lobby::new(0, 4))));
         lobbies.remove_lobby(0).await;
         assert_eq!(lobbies.lobbies.lock().await.len(), 0);
         Ok(())

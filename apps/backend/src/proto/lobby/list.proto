@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package lobby.list;
+option csharp_namespace = "Protos.Lobby";
+
+import "lobby/lobby.proto";
+
+message ListResponse {
+    bool success = 1;
+    optional LobbyInfos lobbyInfos = 2;
+}
+
+message LobbyInfos {
+    repeated LobbyInfo lobbyInfos = 1;
+}
+
+message LobbyInfo {
+    uint32 id = 1;
+    uint32 maxPlayers = 2;
+    uint32 currentPlayers = 3;
+}
+

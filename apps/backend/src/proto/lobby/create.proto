@@ -5,6 +5,10 @@ option csharp_namespace = "Protos.Lobby";
 
 import "lobby/lobby.proto";
 
+message CreateRequest {
+    uint32 maxPlayers = 1;
+}
+
 message CreateResponse {
     bool success = 1;
     optional lobby.Lobby lobby = 2;

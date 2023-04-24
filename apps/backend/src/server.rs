@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
@@ -16,10 +17,11 @@ use priority_queue::PriorityQueue;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::Mutex;
+use tokio::time::{sleep, Duration};
 
 #[derive(Debug, Clone)]
 pub struct Server {
-    player_timeout_queue: Arc<Mutex<PriorityQueue<u32, Instant>>>,
+    player_timeout_queue: Arc<Mutex<PriorityQueue<u32, Reverse<Instant>>>>,
     host: String,
     port: u32,
     online_player_map: ClientMap,
@@ -44,6 +46,18 @@ impl Server {
 
         let mut next_client_id = 0;
 
+        let server = self.clone();
+
+        tokio::spawn(async move {
+            loop {
+                sleep(Duration::from_secs(60)).await;
+                match server.kick_timeout_users().await {
+                    Ok(_) => println!("kick timeout players success"),
+                    Err(e) => eprintln!("failed to kick timeout players, err: {}", e),
+                }
+            }
+        });
+
         loop {
             let (socket, _) = listener.accept().await?;
             let (tx, mut rx): (Sender<Frame>, Receiver<Frame>) = channel(128);
@@ -51,15 +65,14 @@ impl Server {
             let client_id = next_client_id;
             next_client_id += 1;
 
+            let connection_bak = Arc::new(Mutex::new(Connection::new(socket)));
             // clone the map
-            let connection = Arc::new(Mutex::new(Connection::new(socket)));
-            let connection_receiver = connection.clone();
-            let connection_sender = connection.clone();
+            let connection = connection_bak.clone();
             let server = self.clone();
 
             tokio::spawn(async move {
                 loop {
-                    let frame = match connection_receiver.lock().await.try_read_frame() {
+                    let frame = match connection.lock().await.try_read_frame() {
                         Ok(Some(frame)) => frame,
                         Ok(None) => {
                             continue;
@@ -76,7 +89,7 @@ impl Server {
                                     client_id,
                                     tx.clone(),
                                     #[cfg(not(test))]
-                                    connection_receiver.clone(),
+                                    connection.clone(),
                                     req,
                                 )
                                 .await;
@@ -91,11 +104,13 @@ impl Server {
                 }
             });
 
+            let connection = connection_bak.clone();
+
             tokio::spawn(async move {
                 loop {
                     while let Some(frame) = rx.recv().await {
                         println!("received frame; frame = {:?}", frame);
-                        let mut connection = connection_sender.lock().await;
+                        let mut connection = connection.lock().await;
                         // println!("get connection = {:?}", connection);
                         match connection.write_frame(&frame).await {
                             Ok(_) => {
@@ -160,7 +175,7 @@ impl Server {
         self.player_timeout_queue
             .lock()
             .await
-            .push(client_id, Instant::now());
+            .push(client_id, Reverse(Instant::now()));
 
         Ok(())
     }
@@ -196,7 +211,7 @@ impl Server {
             .player_timeout_queue
             .lock()
             .await
-            .change_priority(&client_id, Instant::now())
+            .change_priority(&client_id, Reverse(Instant::now()))
         {
             Some(_) => Ok(()),
             None => Err("Player not found")?,
@@ -293,6 +308,25 @@ impl Server {
 
     async fn list_lobby(&self) -> Result<LobbyInfos, Box<dyn Error + Sync + Send>> {
         Ok(LobbyInfos::from_lobbies(self.lobbies.clone()).await)
+    }
+
+    async fn kick_timeout_users(&self) -> Result<u32, Box<dyn Error + Sync + Send>> {
+        let queue = self.player_timeout_queue.clone();
+        let mut timeout_players = Vec::new();
+        {
+            let mut queue = queue.lock().await;
+            while let Some(item) = queue.pop() {
+                if item.1 .0.elapsed().as_secs() < 30 {
+                    queue.push(item.0, item.1);
+                    break;
+                }
+                timeout_players.push(item.0);
+            }
+        }
+        for timeout_player in &timeout_players {
+            self.disconnect(*timeout_player).await?;
+        }
+        Ok(timeout_players.len() as u32)
     }
 
     async fn handle_request(
@@ -496,7 +530,7 @@ mod tests {
             .player_timeout_queue
             .lock()
             .await
-            .push(0, Instant::now());
+            .push(0, Reverse(Instant::now()));
         server.disconnect(0).await?;
         assert!(server.online_player_map.lock().await.len() == 0);
         assert!(server.player_timeout_queue.lock().await.len() == 0);
@@ -692,6 +726,46 @@ mod tests {
         server.lobbies.lock().await.create_lobby(4).await;
         let lobby_list = server.list_lobby().await?;
         assert_eq!(lobby_list.lobby_infos.len(), 1);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn kick_timeout_users_with_a_timeout_user_timeout_users_should_be_kicked(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server
+            .player_timeout_queue
+            .lock()
+            .await
+            .push(0, Reverse(Instant::now() - Duration::from_secs(60)));
+        server.online_player_map.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
+        );
+        assert_eq!(server.kick_timeout_users().await?, 1);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn kick_timeout_users_with_two_timeout_users_and_a_normal_user_timeout_users_should_be_kicked(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+
+        for i in 0..3 {
+            server.player_timeout_queue.lock().await.push(
+                i,
+                match i == 2 {
+                    true => Reverse(Instant::now()),
+                    false => Reverse(Instant::now() - Duration::from_secs(60)),
+                },
+            );
+            server.online_player_map.lock().await.insert(
+                i,
+                Arc::new(Mutex::new(Player::new(i, String::from("test")))),
+            );
+        }
+
+        assert_eq!(server.kick_timeout_users().await?, 2);
         Ok(())
     }
 }

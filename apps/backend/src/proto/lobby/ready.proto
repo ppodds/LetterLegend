@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package lobby.ready;
+option csharp_namespace = "Protos.Lobby";
+
+message ReadyResponse {
+    bool success = 1;
+}
+

@@ -8,7 +8,8 @@ use crate::{
     model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
     model::lobby::create::CreateRequest, model::lobby::create::CreateResponse,
     model::lobby::join::JoinRequest, model::lobby::join::JoinResponse,
-    model::lobby::list::ListResponse, model::lobby::quit::QuitResponse, operation::Operation,
+    model::lobby::list::ListResponse, model::lobby::quit::QuitResponse,
+    model::lobby::ready::ReadyResponse, operation::Operation,
 };
 
 #[derive(Debug)]
@@ -27,6 +28,7 @@ pub enum Request {
     JoinLobby(JoinRequest),
     QuitLobby,
     ListLobby,
+    Ready,
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +40,7 @@ pub enum Response {
     JoinLobby(JoinResponse),
     QuitLobby(QuitResponse),
     ListLobby(ListResponse),
+    Ready(ReadyResponse),
 }
 
 #[derive(Debug)]

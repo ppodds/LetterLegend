@@ -329,6 +329,34 @@ impl Server {
         Ok(timeout_players.len() as u32)
     }
 
+    async fn ready(&self, client_id: u32) -> Result<bool, Box<dyn Error + Sync + Send>> {
+        let player = match self.online_player_map.lock().await.get(&client_id) {
+            Some(player) => player.clone(),
+            None => return Err("Player not found".into()),
+        };
+
+        let lobby_id = match player.lock().await.lobby_id {
+            Some(id) => id,
+            None => return Err("Player not in lobby".into()),
+        };
+
+        let lobby = match self.lobbies.lock().await.get_lobby(lobby_id).await {
+            Some(lobby) => lobby.clone(),
+            None => return Err("Lobby not found".into()),
+        };
+
+        let player = lobby.lock().await.get_player(client_id).await;
+
+        match player {
+            Some(player) => {
+                let mut player = player.lock().await;
+                player.ready = !player.ready;
+                return Ok(player.ready);
+            }
+            None => return Err("Player not found".into()),
+        }
+    }
+
     async fn handle_request(
         &self,
         client_id: u32,
@@ -474,6 +502,22 @@ impl Server {
                             success: false,
                             lobby_infos: None,
                         },
+                    )))
+                    .await?;
+                    Err(e)
+                }
+            },
+            Request::Ready => match self.ready(client_id).await {
+                Ok(_) => {
+                    tx.send(Frame::Response(Response::Ready(
+                        crate::model::lobby::ready::ReadyResponse { success: true },
+                    )))
+                    .await?;
+                    Ok(())
+                }
+                Err(e) => {
+                    tx.send(Frame::Response(Response::Ready(
+                        crate::model::lobby::ready::ReadyResponse { success: false },
                     )))
                     .await?;
                     Err(e)
@@ -766,6 +810,69 @@ mod tests {
         }
 
         assert_eq!(server.kick_timeout_users().await?, 2);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn ready_with_test_user_in_test_lobby_should_ready(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        let player = Arc::new(Mutex::new(Player::new(0, String::from("test"))));
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, player.clone());
+        let lobby = server.lobbies.lock().await.create_lobby(4).await;
+        lobby.lock().await.add_player(player.clone()).await?;
+        server.ready(0).await?;
+        assert!(
+            lobby
+                .lock()
+                .await
+                .get_player(0)
+                .await
+                .unwrap()
+                .lock()
+                .await
+                .ready
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn ready_with_test_user_in_test_lobby_should_not_ready(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        let player = Arc::new(Mutex::new(Player::new(0, String::from("test"))));
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, player.clone());
+        let lobby = server.lobbies.lock().await.create_lobby(4).await;
+        lobby.lock().await.add_player(player.clone()).await?;
+        lobby
+            .lock()
+            .await
+            .get_player(0)
+            .await
+            .unwrap()
+            .lock()
+            .await
+            .ready = true;
+        server.ready(0).await?;
+        assert!(
+            !lobby
+                .lock()
+                .await
+                .get_player(0)
+                .await
+                .unwrap()
+                .lock()
+                .await
+                .ready
+        );
         Ok(())
     }
 }

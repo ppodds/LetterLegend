@@ -7,7 +7,12 @@ impl Lobby {
     pub async fn from_lobby(lobby: Arc<Mutex<crate::lobby::lobby::Lobby>>) -> Self {
         let mut players = Vec::new();
         for player in lobby.lock().await.get_players().await {
-            players.push(crate::model::player::player::Player::from_player(player).await);
+            players.push(
+                crate::model::player::player::Player::from_player(
+                    player.lock().await.player.clone(),
+                )
+                .await,
+            );
         }
         Self {
             id: lobby.lock().await.get_id(),

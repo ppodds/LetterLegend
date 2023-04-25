@@ -162,6 +162,11 @@ impl Connection {
                         res.encode(&mut buf)?;
                         buf
                     }
+                    crate::frame::Response::Ready(res) => {
+                        let mut buf = BytesMut::with_capacity(res.encoded_len());
+                        res.encode(&mut buf)?;
+                        buf
+                    }
                 };
                 let (_, mut writer) = self.stream.split();
                 writer.write_u32_le(buf.len().try_into().unwrap()).await?;

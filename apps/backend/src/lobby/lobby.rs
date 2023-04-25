@@ -3,11 +3,13 @@ use std::error::Error;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
+use super::lobby_player::LobbyPlayer;
+
 #[derive(Debug, Clone)]
 pub struct Lobby {
     id: u32,
     max_players: u32,
-    players: Arc<Mutex<HashMap<u32, Arc<Mutex<Player>>>>>,
+    players: Arc<Mutex<HashMap<u32, Arc<Mutex<LobbyPlayer>>>>>,
 }
 
 impl Lobby {
@@ -30,26 +32,26 @@ impl Lobby {
         }
 
         player.lock().await.lobby_id = Some(self.id);
-        self.players
-            .lock()
-            .await
-            .insert(player.lock().await.id, player.clone());
+        self.players.lock().await.insert(
+            player.lock().await.id,
+            Arc::new(Mutex::new(LobbyPlayer::new(player.clone()))),
+        );
         Ok(())
     }
 
-    pub async fn get_player(&self, id: u32) -> Option<Arc<Mutex<Player>>> {
+    pub async fn get_player(&self, id: u32) -> Option<Arc<Mutex<LobbyPlayer>>> {
         Some(self.players.lock().await.get(&id)?.clone())
     }
 
-    pub async fn get_players(&self) -> Vec<Arc<Mutex<Player>>> {
+    pub async fn get_players(&self) -> Vec<Arc<Mutex<LobbyPlayer>>> {
         self.players.lock().await.values().cloned().collect()
     }
 
-    pub async fn remove_player(&self, id: u32) -> Option<Arc<Mutex<Player>>> {
+    pub async fn remove_player(&self, id: u32) -> Option<Arc<Mutex<LobbyPlayer>>> {
         let player = self.players.lock().await.remove(&id);
 
         if let Some(player) = player.clone() {
-            player.lock().await.lobby_id = None;
+            player.lock().await.player.lock().await.lobby_id = None;
         }
 
         player
@@ -108,15 +110,16 @@ mod tests {
     async fn get_player_with_test_player_should_return_test_player(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let lobby = Lobby::new(0, 4);
-        lobby
-            .players
-            .lock()
-            .await
-            .insert(0, Arc::new(Mutex::new(Player::new(0, "test".to_string()))));
+        lobby.players.lock().await.insert(
+            0,
+            Arc::new(Mutex::new(LobbyPlayer::new(Arc::new(Mutex::new(
+                Player::new(0, "test".to_string()),
+            ))))),
+        );
         let t = lobby.get_player(0).await.unwrap();
         let player = t.lock().await;
-        assert_eq!(player.id, 0);
-        assert_eq!(player.name, "test");
+        assert_eq!(player.player.lock().await.id, 0);
+        assert_eq!(player.player.lock().await.name, "test");
         Ok(())
     }
 
@@ -135,12 +138,15 @@ mod tests {
         for i in 0..3 {
             lobby.players.lock().await.insert(
                 i,
-                Arc::new(Mutex::new(Player::new(i, format!("test{}", i)))),
+                Arc::new(Mutex::new(LobbyPlayer::new(Arc::new(Mutex::new(
+                    Player::new(i, format!("test{}", i)),
+                ))))),
             );
         }
 
-        for player in lobby.get_players().await {
-            let player = player.lock().await;
+        for lobby_player in lobby.get_players().await {
+            let t = lobby_player.lock().await;
+            let player = t.player.lock().await;
             assert_eq!(player.name, format!("test{}", player.id));
         }
         Ok(())
@@ -152,12 +158,22 @@ mod tests {
         let lobby = Lobby::new(0, 4);
         lobby.players.lock().await.insert(
             0,
-            Arc::new(Mutex::new(Player::new(0, format!("test{}", 0)))),
+            Arc::new(Mutex::new(LobbyPlayer::new(Arc::new(Mutex::new(
+                Player::new(0, format!("test{}", 0)),
+            ))))),
         );
 
         let player = lobby.remove_player(0).await;
         assert_eq!(lobby.players.lock().await.len(), 0);
-        assert!(player.unwrap().lock().await.lobby_id.is_none());
+        assert!(player
+            .unwrap()
+            .lock()
+            .await
+            .player
+            .lock()
+            .await
+            .lobby_id
+            .is_none());
         Ok(())
     }
 

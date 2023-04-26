@@ -14,9 +14,9 @@ use crate::model::control::{
 use crate::model::lobby::list::LobbyInfos;
 use crate::player::Player;
 use priority_queue::PriorityQueue;
+use std::sync::Mutex;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 
 #[derive(Debug, Clone)]
@@ -51,7 +51,7 @@ impl Server {
         tokio::spawn(async move {
             loop {
                 sleep(Duration::from_secs(60)).await;
-                match server.kick_timeout_users().await {
+                match server.kick_timeout_users() {
                     Ok(_) => println!("kick timeout players success"),
                     Err(e) => eprintln!("failed to kick timeout players, err: {}", e),
                 }
@@ -65,7 +65,7 @@ impl Server {
             let client_id = next_client_id;
             next_client_id += 1;
 
-            let connection_bak = Arc::new(Mutex::new(Connection::new(socket)));
+            let connection_bak = Arc::new(tokio::sync::Mutex::new(Connection::new(socket)));
             // clone the map
             let connection = connection_bak.clone();
             let server = self.clone();
@@ -110,9 +110,7 @@ impl Server {
                 loop {
                     while let Some(frame) = rx.recv().await {
                         println!("received frame; frame = {:?}", frame);
-                        let mut connection = connection.lock().await;
-                        // println!("get connection = {:?}", connection);
-                        match connection.write_frame(&frame).await {
+                        match connection.lock().await.write_frame(&frame).await {
                             Ok(_) => {
                                 println!("sent frame; frame = {:?}", frame);
                                 continue;
@@ -121,7 +119,7 @@ impl Server {
                                 eprintln!("failed to write frame; err = {:?}", e);
                                 break;
                             }
-                        }
+                        };
                     }
                 }
             });
@@ -152,17 +150,22 @@ impl Server {
         }
     }
 
-    async fn connect(
+    fn connect(
         &self,
         client_id: u32,
         name: String,
-        #[cfg(not(test))] connection: Arc<Mutex<Connection>>,
+        #[cfg(not(test))] connection: Arc<tokio::sync::Mutex<Connection>>,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        if self.online_player_map.lock().await.contains_key(&client_id) {
+        if self
+            .online_player_map
+            .lock()
+            .unwrap()
+            .contains_key(&client_id)
+        {
             return Err("client already connected".into());
         }
 
-        self.online_player_map.lock().await.insert(
+        self.online_player_map.lock().unwrap().insert(
             client_id,
             Arc::new(Player::new(
                 client_id,
@@ -174,29 +177,29 @@ impl Server {
 
         self.player_timeout_queue
             .lock()
-            .await
+            .unwrap()
             .push(client_id, Reverse(Instant::now()));
 
         Ok(())
     }
 
-    async fn disconnect(&self, client_id: u32) -> Result<(), Box<dyn Error + Sync + Send>> {
-        match self.online_player_map.lock().await.remove(&client_id) {
+    fn disconnect(&self, client_id: u32) -> Result<(), Box<dyn Error + Sync + Send>> {
+        match self.online_player_map.lock().unwrap().remove(&client_id) {
             Some(player) => {
-                self.player_timeout_queue.lock().await.remove(&client_id);
-                if player.lobby_id.lock().await.is_some() {
+                self.player_timeout_queue.lock().unwrap().remove(&client_id);
+                if player.lobby_id.lock().unwrap().is_some() {
                     let lobby = self
                         .lobbies
                         .clone()
-                        .get_lobby(player.lobby_id.lock().await.unwrap())
-                        .await
+                        .get_lobby(player.lobby_id.lock().unwrap().unwrap())
                         .unwrap();
-                    lobby.remove_player(player.id).await;
+                    lobby.remove_player(player.id);
                 }
-                if player.game_id.lock().await.is_some() {
-                    let game =
-                        self.game_map.lock().await[&player.game_id.lock().await.unwrap()].clone();
-                    game.lock().await.retain(|&x| x != client_id);
+                if player.game_id.lock().unwrap().is_some() {
+                    let game = self.game_map.lock().unwrap()
+                        [&player.game_id.lock().unwrap().unwrap()]
+                        .clone();
+                    game.lock().unwrap().retain(|&x| x != client_id);
                 }
                 Ok(())
             }
@@ -204,11 +207,11 @@ impl Server {
         }
     }
 
-    async fn heartbeat(&self, client_id: u32) -> Result<(), Box<dyn Error + Sync + Send>> {
+    fn heartbeat(&self, client_id: u32) -> Result<(), Box<dyn Error + Sync + Send>> {
         match self
             .player_timeout_queue
             .lock()
-            .await
+            .unwrap()
             .change_priority(&client_id, Reverse(Instant::now()))
         {
             Some(_) => Ok(()),
@@ -216,7 +219,7 @@ impl Server {
         }
     }
 
-    async fn create_lobby(
+    fn create_lobby(
         &self,
         client_id: u32,
         max_players: u32,
@@ -225,30 +228,30 @@ impl Server {
             return Err("Invalid max players".into());
         }
 
-        let lobby = self.lobbies.create_lobby(max_players).await;
-        let players = self.online_player_map.lock().await;
+        let lobby = self.lobbies.create_lobby(max_players);
+        let players = self.online_player_map.lock().unwrap();
         let player = players.get(&client_id);
         if player.is_none() {
             return Err("Player not found".into());
         }
-        match lobby.clone().add_player(player.unwrap().clone()).await {
+        match lobby.clone().add_player(player.unwrap().clone()) {
             Ok(_) => Ok(lobby),
             Err(e) => Err(e),
         }
     }
 
-    async fn join_lobby(
+    fn join_lobby(
         &self,
         client_id: u32,
         lobby_id: u32,
     ) -> Result<Arc<Lobby>, Box<dyn Error + Sync + Send>> {
-        let lobby = self.lobbies.clone().get_lobby(lobby_id).await;
+        let lobby = self.lobbies.clone().get_lobby(lobby_id);
 
         if lobby.is_none() {
             return Err("Lobby not found".into());
         }
 
-        let players = self.online_player_map.lock().await;
+        let players = self.online_player_map.lock().unwrap();
         let player = players.get(&client_id);
 
         if player.is_none() {
@@ -256,14 +259,14 @@ impl Server {
         }
 
         let lobby = lobby.unwrap().clone();
-        match lobby.clone().add_player(player.unwrap().clone()).await {
+        match lobby.clone().add_player(player.unwrap().clone()) {
             Ok(_) => Ok(lobby),
             Err(e) => return Err(e),
         }
     }
 
-    async fn quit_lobby(&self, client_id: u32) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let players = self.online_player_map.lock().await;
+    fn quit_lobby(&self, client_id: u32) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let players = self.online_player_map.lock().unwrap();
         let player = players.get(&client_id);
 
         if player.is_none() {
@@ -271,31 +274,31 @@ impl Server {
         }
 
         let lobby = {
-            let lobby_id = player.unwrap().lobby_id.lock().await;
+            let lobby_id = player.unwrap().lobby_id.lock().unwrap();
 
             if lobby_id.is_none() {
                 return Err("Player not in lobby".into());
             }
-            self.lobbies.clone().get_lobby(lobby_id.unwrap()).await
+            self.lobbies.clone().get_lobby(lobby_id.unwrap())
         };
 
         if lobby.is_none() {
             return Err("Lobby not found".into());
         }
 
-        lobby.unwrap().remove_player(client_id).await;
+        lobby.unwrap().remove_player(client_id);
         Ok(())
     }
 
-    async fn list_lobby(&self) -> Result<LobbyInfos, Box<dyn Error + Sync + Send>> {
-        Ok(LobbyInfos::from_lobbies(self.lobbies.clone()).await)
+    fn list_lobby(&self) -> Result<LobbyInfos, Box<dyn Error + Sync + Send>> {
+        Ok(LobbyInfos::from_lobbies(self.lobbies.clone()))
     }
 
-    async fn kick_timeout_users(&self) -> Result<u32, Box<dyn Error + Sync + Send>> {
+    fn kick_timeout_users(&self) -> Result<u32, Box<dyn Error + Sync + Send>> {
         let queue = self.player_timeout_queue.clone();
         let mut timeout_players = Vec::new();
         {
-            let mut queue = queue.lock().await;
+            let mut queue = queue.lock().unwrap();
             while let Some(item) = queue.pop() {
                 if item.1 .0.elapsed().as_secs() < 30 {
                     queue.push(item.0, item.1);
@@ -305,32 +308,32 @@ impl Server {
             }
         }
         for timeout_player in &timeout_players {
-            self.disconnect(*timeout_player).await?;
+            self.disconnect(*timeout_player)?;
         }
         Ok(timeout_players.len() as u32)
     }
 
-    async fn ready(&self, client_id: u32) -> Result<bool, Box<dyn Error + Sync + Send>> {
-        let player = match self.online_player_map.lock().await.get(&client_id) {
+    fn ready(&self, client_id: u32) -> Result<bool, Box<dyn Error + Sync + Send>> {
+        let player = match self.online_player_map.lock().unwrap().get(&client_id) {
             Some(player) => player.clone(),
             None => return Err("Player not found".into()),
         };
 
-        let lobby_id = match *player.lobby_id.lock().await {
+        let lobby_id = match *player.lobby_id.lock().unwrap() {
             Some(id) => id,
             None => return Err("Player not in lobby".into()),
         };
 
-        let lobby = match self.lobbies.get_lobby(lobby_id).await {
+        let lobby = match self.lobbies.get_lobby(lobby_id) {
             Some(lobby) => lobby.clone(),
             None => return Err("Lobby not found".into()),
         };
 
-        let player = lobby.get_player(client_id).await;
+        let player = lobby.get_player(client_id);
 
         match player {
             Some(player) => {
-                let mut ready = player.ready.lock().await;
+                let mut ready = player.ready.lock().unwrap();
                 *ready = !*ready;
                 return Ok(*ready);
             }
@@ -342,19 +345,16 @@ impl Server {
         &self,
         client_id: u32,
         tx: Sender<Frame>,
-        #[cfg(not(test))] connection: Arc<Mutex<Connection>>,
+        #[cfg(not(test))] connection: Arc<tokio::sync::Mutex<Connection>>,
         request: Request,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         match request {
-            Request::Connect(req) => match self
-                .connect(
-                    client_id,
-                    req.name,
-                    #[cfg(not(test))]
-                    connection,
-                )
-                .await
-            {
+            Request::Connect(req) => match self.connect(
+                client_id,
+                req.name,
+                #[cfg(not(test))]
+                connection,
+            ) {
                 Ok(_) => {
                     tx.send(Frame::Response(Response::Connect(ConnectResponse {
                         success: true,
@@ -370,7 +370,7 @@ impl Server {
                     Err(e)
                 }
             },
-            Request::Disconnect => match self.disconnect(client_id).await {
+            Request::Disconnect => match self.disconnect(client_id) {
                 Ok(_) => {
                     tx.send(Frame::Response(Response::Disconnect(DisconnectResponse {
                         success: true,
@@ -386,7 +386,7 @@ impl Server {
                     Err(e)
                 }
             },
-            Request::Heartbeat => match self.heartbeat(client_id).await {
+            Request::Heartbeat => match self.heartbeat(client_id) {
                 Ok(_) => {
                     tx.send(Frame::Response(Response::Heartbeat(HeartbeatResponse {
                         success: true,
@@ -402,38 +402,34 @@ impl Server {
                     Err(e)
                 }
             },
-            Request::CreateLobby(req) => {
-                match self.create_lobby(client_id, req.max_players).await {
-                    Ok(lobby) => {
-                        tx.send(Frame::Response(Response::CreateLobby(
-                            crate::model::lobby::create::CreateResponse {
-                                success: true,
-                                lobby: Some(
-                                    crate::model::lobby::lobby::Lobby::from_lobby(lobby).await,
-                                ),
-                            },
-                        )))
-                        .await?;
-                        Ok(())
-                    }
-                    Err(e) => {
-                        tx.send(Frame::Response(Response::CreateLobby(
-                            crate::model::lobby::create::CreateResponse {
-                                success: false,
-                                lobby: None,
-                            },
-                        )))
-                        .await?;
-                        Err(e)
-                    }
+            Request::CreateLobby(req) => match self.create_lobby(client_id, req.max_players) {
+                Ok(lobby) => {
+                    tx.send(Frame::Response(Response::CreateLobby(
+                        crate::model::lobby::create::CreateResponse {
+                            success: true,
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from_lobby(lobby)),
+                        },
+                    )))
+                    .await?;
+                    Ok(())
                 }
-            }
-            Request::JoinLobby(req) => match self.join_lobby(client_id, req.lobby_id).await {
+                Err(e) => {
+                    tx.send(Frame::Response(Response::CreateLobby(
+                        crate::model::lobby::create::CreateResponse {
+                            success: false,
+                            lobby: None,
+                        },
+                    )))
+                    .await?;
+                    Err(e)
+                }
+            },
+            Request::JoinLobby(req) => match self.join_lobby(client_id, req.lobby_id) {
                 Ok(res) => {
                     tx.send(Frame::Response(Response::JoinLobby(
                         crate::model::lobby::join::JoinResponse {
                             success: true,
-                            lobby: Some(crate::model::lobby::lobby::Lobby::from_lobby(res).await),
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from_lobby(res)),
                         },
                     )))
                     .await?;
@@ -450,7 +446,7 @@ impl Server {
                     Err(e)
                 }
             },
-            Request::QuitLobby => match self.quit_lobby(client_id).await {
+            Request::QuitLobby => match self.quit_lobby(client_id) {
                 Ok(_) => {
                     tx.send(Frame::Response(Response::QuitLobby(
                         crate::model::lobby::quit::QuitResponse { success: true },
@@ -466,7 +462,7 @@ impl Server {
                     Err(e)
                 }
             },
-            Request::ListLobby => match self.list_lobby().await {
+            Request::ListLobby => match self.list_lobby() {
                 Ok(res) => {
                     tx.send(Frame::Response(Response::ListLobby(
                         crate::model::lobby::list::ListResponse {
@@ -488,7 +484,7 @@ impl Server {
                     Err(e)
                 }
             },
-            Request::Ready => match self.ready(client_id).await {
+            Request::Ready => match self.ready(client_id) {
                 Ok(_) => {
                     tx.send(Frame::Response(Response::Ready(
                         crate::model::lobby::ready::ReadyResponse { success: true },
@@ -512,265 +508,244 @@ impl Server {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn connect_with_test_user_online_player_map_should_include_test_user(
+    #[test]
+    fn connect_with_test_user_online_player_map_should_include_test_user(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.connect(0, String::from("test")).await?;
-        let online_player_map = server.online_player_map.lock().await;
+        server.connect(0, String::from("test"))?;
+        let online_player_map = server.online_player_map.lock().unwrap();
         let player = online_player_map.get(&0).unwrap();
         assert_eq!(player.id, 0);
         assert_eq!(player.name, String::from("test"));
         Ok(())
     }
 
-    #[tokio::test]
-    async fn connect_with_test_user_player_timeout_queue_should_include_test_user(
+    #[test]
+    fn connect_with_test_user_player_timeout_queue_should_include_test_user(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.connect(0, String::from("test")).await?;
-        let player_timeout_queue = server.player_timeout_queue.lock().await;
+        server.connect(0, String::from("test"))?;
+        let player_timeout_queue = server.player_timeout_queue.lock().unwrap();
         assert!(player_timeout_queue.get(&0).is_some());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn connect_with_test_user_who_already_connected_should_return_error(
+    #[test]
+    fn connect_with_test_user_who_already_connected_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.connect(0, String::from("test")).await?;
-        assert!(server.connect(0, String::from("test")).await.is_err());
+        server.connect(0, String::from("test"))?;
+        assert!(server.connect(0, String::from("test")).is_err());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn disconnect_with_user_already_connected_should_be_removed(
+    #[test]
+    fn disconnect_with_user_already_connected_should_be_removed(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
         server
             .online_player_map
             .lock()
-            .await
+            .unwrap()
             .insert(0, Arc::new(Player::new(0, String::from("test"))));
         server
             .player_timeout_queue
             .lock()
-            .await
+            .unwrap()
             .push(0, Reverse(Instant::now()));
-        server.disconnect(0).await?;
-        assert!(server.online_player_map.lock().await.len() == 0);
-        assert!(server.player_timeout_queue.lock().await.len() == 0);
+        server.disconnect(0)?;
+        assert!(server.online_player_map.lock().unwrap().len() == 0);
+        assert!(server.player_timeout_queue.lock().unwrap().len() == 0);
         Ok(())
     }
 
-    #[tokio::test]
-    async fn disconnect_with_user_not_exist_should_return_error(
+    #[test]
+    fn disconnect_with_user_not_exist_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        assert!(server.disconnect(0).await.is_err());
+        assert!(server.disconnect(0).is_err());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn create_lobby_with_test_user_should_create_lobby(
-    ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let server = Server::new();
-        server
-            .online_player_map
-            .lock()
-            .await
-            .insert(0, Arc::new(Player::new(0, String::from("test"))));
-        server.create_lobby(0, 4).await?;
-        assert!(server.lobbies.get_lobby(0).await.is_some());
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn create_lobby_with_test_user_and_invaild_max_players_should_return_error(
-    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+    #[test]
+    fn create_lobby_with_test_user_should_create_lobby() -> Result<(), Box<dyn Error + Sync + Send>>
+    {
         let server = Server::new();
         server
             .online_player_map
             .lock()
-            .await
-            .insert(0, Arc::new(Player::new(0, String::from("test"))));
-        assert!(server.create_lobby(0, 3).await.is_err());
-        assert!(server.create_lobby(0, 9).await.is_err());
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn create_lobby_with_not_exist_user_should_return_error(
-    ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let server = Server::new();
-        assert!(server.create_lobby(0, 4).await.is_err());
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn create_lobby_with_test_user_should_contains_test_user(
-    ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let server = Server::new();
-        server
-            .online_player_map
-            .lock()
-            .await
-            .insert(0, Arc::new(Player::new(0, String::from("test"))));
-        server.create_lobby(0, 4).await?;
-        assert!(server
-            .lobbies
-            .get_lobby(0)
-            .await
             .unwrap()
-            .get_player(0)
-            .await
-            .is_some());
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
+        server.create_lobby(0, 4)?;
+        assert!(server.lobbies.get_lobby(0).is_some());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn join_lobby_with_test_user_and_test_lobby_should_join_lobby(
+    #[test]
+    fn create_lobby_with_test_user_and_invaild_max_players_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
         server
             .online_player_map
             .lock()
-            .await
-            .insert(0, Arc::new(Player::new(0, String::from("test"))));
-        server.lobbies.create_lobby(4).await;
-        server.join_lobby(0, 0).await?;
-        assert!(server
-            .lobbies
-            .get_lobby(0)
-            .await
             .unwrap()
-            .get_player(0)
-            .await
-            .is_some());
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
+        assert!(server.create_lobby(0, 3).is_err());
+        assert!(server.create_lobby(0, 9).is_err());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn join_lobby_with_not_exist_user_and_test_lobby_should_return_error(
+    #[test]
+    fn create_lobby_with_not_exist_user_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        assert!(server.create_lobby(0, 4).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn create_lobby_with_test_user_should_contains_test_user(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
         server
             .online_player_map
             .lock()
-            .await
+            .unwrap()
             .insert(0, Arc::new(Player::new(0, String::from("test"))));
-        server.create_lobby(0, 4).await?;
-        assert!(server.join_lobby(1, 0).await.is_err());
+        server.create_lobby(0, 4)?;
+        assert!(server.lobbies.get_lobby(0).unwrap().get_player(0).is_some());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn join_lobby_with_test_user_and_not_exist_lobby_should_return_error(
+    #[test]
+    fn join_lobby_with_test_user_and_test_lobby_should_join_lobby(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
         server
             .online_player_map
             .lock()
-            .await
+            .unwrap()
             .insert(0, Arc::new(Player::new(0, String::from("test"))));
-        assert!(server.join_lobby(0, 0).await.is_err());
+        server.lobbies.create_lobby(4);
+        server.join_lobby(0, 0)?;
+        assert!(server.lobbies.get_lobby(0).unwrap().get_player(0).is_some());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn join_lobby_with_not_exist_user_and_not_exist_lobby_should_return_error(
+    #[test]
+    fn join_lobby_with_not_exist_user_and_test_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        assert!(server.join_lobby(0, 0).await.is_err());
+        server
+            .online_player_map
+            .lock()
+            .unwrap()
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
+        server.create_lobby(0, 4)?;
+        assert!(server.join_lobby(1, 0).is_err());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn quit_lobby_with_test_user_in_test_lobby_should_quit_lobby(
+    #[test]
+    fn join_lobby_with_test_user_and_not_exist_lobby_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        server
+            .online_player_map
+            .lock()
+            .unwrap()
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
+        assert!(server.join_lobby(0, 0).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn join_lobby_with_not_exist_user_and_not_exist_lobby_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        assert!(server.join_lobby(0, 0).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn quit_lobby_with_test_user_in_test_lobby_should_quit_lobby(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
         let player = Arc::new(Player::new(0, String::from("test")));
         server
             .online_player_map
             .lock()
-            .await
-            .insert(0, player.clone());
-        let lobby = server.lobbies.create_lobby(4).await;
-        lobby.add_player(player).await?;
-        server.quit_lobby(0).await?;
-        assert!(server
-            .lobbies
-            .get_lobby(0)
-            .await
             .unwrap()
-            .get_player(0)
-            .await
-            .is_none());
+            .insert(0, player.clone());
+        let lobby = server.lobbies.create_lobby(4);
+        lobby.add_player(player)?;
+        server.quit_lobby(0)?;
+        assert!(server.lobbies.get_lobby(0).unwrap().get_player(0).is_none());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn quit_lobby_with_not_exist_user_should_return_error(
+    #[test]
+    fn quit_lobby_with_not_exist_user_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        assert!(server.quit_lobby(0).await.is_err());
+        assert!(server.quit_lobby(0).is_err());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn quit_lobby_with_test_user_but_not_in_lobby_should_return_error(
+    #[test]
+    fn quit_lobby_with_test_user_but_not_in_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
         let player = Arc::new(Player::new(0, String::from("test")));
         server
             .online_player_map
             .lock()
-            .await
+            .unwrap()
             .insert(0, player.clone());
         server
             .online_player_map
             .lock()
-            .await
+            .unwrap()
             .insert(0, player.clone());
-        assert!(server.quit_lobby(0).await.is_err());
+        assert!(server.quit_lobby(0).is_err());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn list_lobby_with_test_looby_should_return_test_lobby(
+    #[test]
+    fn list_lobby_with_test_looby_should_return_test_lobby(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.lobbies.create_lobby(4).await;
-        let lobby_list = server.list_lobby().await?;
+        server.lobbies.create_lobby(4);
+        let lobby_list = server.list_lobby()?;
         assert_eq!(lobby_list.lobby_infos.len(), 1);
         Ok(())
     }
 
-    #[tokio::test]
-    async fn kick_timeout_users_with_a_timeout_user_timeout_users_should_be_kicked(
+    #[test]
+    fn kick_timeout_users_with_a_timeout_user_timeout_users_should_be_kicked(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
         server
             .player_timeout_queue
             .lock()
-            .await
+            .unwrap()
             .push(0, Reverse(Instant::now() - Duration::from_secs(60)));
         server
             .online_player_map
             .lock()
-            .await
+            .unwrap()
             .insert(0, Arc::new(Player::new(0, String::from("test"))));
-        assert_eq!(server.kick_timeout_users().await?, 1);
+        assert_eq!(server.kick_timeout_users()?, 1);
         Ok(())
     }
 
-    #[tokio::test]
-    async fn kick_timeout_users_with_two_timeout_users_and_a_normal_user_timeout_users_should_be_kicked(
+    #[test]
+    fn kick_timeout_users_with_two_timeout_users_and_a_normal_user_timeout_users_should_be_kicked(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
 
         for i in 0..3 {
-            server.player_timeout_queue.lock().await.push(
+            server.player_timeout_queue.lock().unwrap().push(
                 i,
                 match i == 2 {
                     true => Reverse(Instant::now()),
@@ -780,46 +755,46 @@ mod tests {
             server
                 .online_player_map
                 .lock()
-                .await
+                .unwrap()
                 .insert(i, Arc::new(Player::new(i, String::from("test"))));
         }
 
-        assert_eq!(server.kick_timeout_users().await?, 2);
+        assert_eq!(server.kick_timeout_users()?, 2);
         Ok(())
     }
 
-    #[tokio::test]
-    async fn ready_with_test_user_in_test_lobby_should_ready(
+    #[test]
+    fn ready_with_test_user_in_test_lobby_should_ready() -> Result<(), Box<dyn Error + Sync + Send>>
+    {
+        let server = Server::new();
+        let player = Arc::new(Player::new(0, String::from("test")));
+        server
+            .online_player_map
+            .lock()
+            .unwrap()
+            .insert(0, player.clone());
+        let lobby = server.lobbies.create_lobby(4);
+        lobby.add_player(player.clone())?;
+        server.ready(0)?;
+        assert!(*lobby.get_player(0).unwrap().ready.lock().unwrap());
+        Ok(())
+    }
+
+    #[test]
+    fn ready_with_test_user_in_test_lobby_should_not_ready(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
         let player = Arc::new(Player::new(0, String::from("test")));
         server
             .online_player_map
             .lock()
-            .await
+            .unwrap()
             .insert(0, player.clone());
-        let lobby = server.lobbies.create_lobby(4).await;
-        lobby.add_player(player.clone()).await?;
-        server.ready(0).await?;
-        assert!(*lobby.get_player(0).await.unwrap().ready.lock().await);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn ready_with_test_user_in_test_lobby_should_not_ready(
-    ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let server = Server::new();
-        let player = Arc::new(Player::new(0, String::from("test")));
-        server
-            .online_player_map
-            .lock()
-            .await
-            .insert(0, player.clone());
-        let lobby = server.lobbies.create_lobby(4).await;
-        lobby.add_player(player.clone()).await?;
-        *lobby.get_player(0).await.unwrap().ready.lock().await = true;
-        server.ready(0).await?;
-        assert!(!*lobby.get_player(0).await.unwrap().ready.lock().await);
+        let lobby = server.lobbies.create_lobby(4);
+        lobby.add_player(player.clone())?;
+        *lobby.get_player(0).unwrap().ready.lock().unwrap() = true;
+        server.ready(0)?;
+        assert!(!*lobby.get_player(0).unwrap().ready.lock().unwrap());
         Ok(())
     }
 }

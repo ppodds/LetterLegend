@@ -1,7 +1,7 @@
 use crate::player::Player;
 use std::error::Error;
+use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::Mutex;
 
 use super::lobby_player::LobbyPlayer;
 
@@ -23,35 +23,32 @@ impl Lobby {
         }
     }
 
-    pub async fn add_player(
-        &self,
-        player: Arc<Player>,
-    ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let mut player_lobby_id = player.lobby_id.lock().await;
+    pub fn add_player(&self, player: Arc<Player>) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let mut player_lobby_id = player.lobby_id.lock().unwrap();
         if player_lobby_id.is_some() {
             return Err("player already in a lobby".into());
         }
         *player_lobby_id = Some(self.id);
         self.players
             .lock()
-            .await
+            .unwrap()
             .insert(player.id, Arc::new(LobbyPlayer::new(player.clone())));
         Ok(())
     }
 
-    pub async fn get_player(&self, id: u32) -> Option<Arc<LobbyPlayer>> {
-        Some(self.players.lock().await.get(&id)?.clone())
+    pub fn get_player(&self, id: u32) -> Option<Arc<LobbyPlayer>> {
+        Some(self.players.lock().unwrap().get(&id)?.clone())
     }
 
-    pub async fn get_players(&self) -> Vec<Arc<LobbyPlayer>> {
-        self.players.lock().await.values().cloned().collect()
+    pub fn get_players(&self) -> Vec<Arc<LobbyPlayer>> {
+        self.players.lock().unwrap().values().cloned().collect()
     }
 
-    pub async fn remove_player(&self, id: u32) -> Option<Arc<LobbyPlayer>> {
-        let player = self.players.lock().await.remove(&id);
+    pub fn remove_player(&self, id: u32) -> Option<Arc<LobbyPlayer>> {
+        let player = self.players.lock().unwrap().remove(&id);
 
         if let Some(player) = player.clone() {
-            *player.player.lobby_id.lock().await = None;
+            *player.player.lobby_id.lock().unwrap() = None;
         }
 
         player
@@ -84,59 +81,58 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn add_player_with_test_player_should_be_added() -> Result<(), Box<dyn std::error::Error>>
-    {
+    #[test]
+    fn add_player_with_test_player_should_be_added() -> Result<(), Box<dyn std::error::Error>> {
         let lobby = Lobby::new(0, 4);
         let player = Arc::new(Player::new(0, "test".to_string()));
-        let result = lobby.add_player(player.clone()).await;
+        let result = lobby.add_player(player.clone());
         assert!(result.is_ok());
-        assert!(lobby.players.lock().await.get(&0).is_some());
-        assert_eq!(player.lobby_id.lock().await.unwrap(), 0);
+        assert!(lobby.players.lock().unwrap().get(&0).is_some());
+        assert_eq!(player.lobby_id.lock().unwrap().unwrap(), 0);
         Ok(())
     }
 
-    #[tokio::test]
-    async fn add_player_with_test_player_already_in_lobby_should_return_error(
+    #[test]
+    fn add_player_with_test_player_already_in_lobby_should_return_error(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let lobby = Lobby::new(0, 4);
         let player = Arc::new(Player::new(0, "test".to_string()));
-        *player.lobby_id.lock().await = Some(1);
-        assert!(lobby.add_player(player).await.is_err());
+        *player.lobby_id.lock().unwrap() = Some(1);
+        assert!(lobby.add_player(player).is_err());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_player_with_test_player_should_return_test_player(
+    #[test]
+    fn get_player_with_test_player_should_return_test_player(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let lobby = Lobby::new(0, 4);
-        lobby.players.lock().await.insert(
+        lobby.players.lock().unwrap().insert(
             0,
             Arc::new(LobbyPlayer::new(Arc::new(Player::new(
                 0,
                 "test".to_string(),
             )))),
         );
-        let player = lobby.get_player(0).await.unwrap().player.clone();
+        let player = lobby.get_player(0).unwrap().player.clone();
         assert_eq!(player.id, 0);
         assert_eq!(player.name, "test");
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_player_with_not_exist_player_should_return_none(
+    #[test]
+    fn get_player_with_not_exist_player_should_return_none(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let lobby = Lobby::new(0, 4);
-        assert!(lobby.get_player(0).await.is_none());
+        assert!(lobby.get_player(0).is_none());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_players_with_three_players_should_return_players(
+    #[test]
+    fn get_players_with_three_players_should_return_players(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let lobby = Lobby::new(0, 4);
         for i in 0..3 {
-            lobby.players.lock().await.insert(
+            lobby.players.lock().unwrap().insert(
                 i,
                 Arc::new(LobbyPlayer::new(Arc::new(Player::new(
                     i,
@@ -145,7 +141,7 @@ mod tests {
             );
         }
 
-        for lobby_player in lobby.get_players().await {
+        for lobby_player in lobby.get_players() {
             assert_eq!(
                 lobby_player.player.name,
                 format!("test{}", lobby_player.player.id)
@@ -154,11 +150,11 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn remove_player_with_test_player_should_remove_player(
+    #[test]
+    fn remove_player_with_test_player_should_remove_player(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let lobby = Lobby::new(0, 4);
-        lobby.players.lock().await.insert(
+        lobby.players.lock().unwrap().insert(
             0,
             Arc::new(LobbyPlayer::new(Arc::new(Player::new(
                 0,
@@ -166,17 +162,17 @@ mod tests {
             )))),
         );
 
-        let player = lobby.remove_player(0).await;
-        assert_eq!(lobby.players.lock().await.len(), 0);
-        assert!(player.unwrap().player.lobby_id.lock().await.is_none());
+        let player = lobby.remove_player(0);
+        assert_eq!(lobby.players.lock().unwrap().len(), 0);
+        assert!(player.unwrap().player.lobby_id.lock().unwrap().is_none());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn remove_player_with_not_exist_player_should_return_none(
+    #[test]
+    fn remove_player_with_not_exist_player_should_return_none(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let lobby = Lobby::new(0, 4);
-        assert!(lobby.remove_player(0).await.is_none());
+        assert!(lobby.remove_player(0).is_none());
         Ok(())
     }
 }

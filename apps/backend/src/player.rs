@@ -1,15 +1,14 @@
 #[cfg(not(test))]
 use crate::connection::Connection;
 use core::hash::{Hash, Hasher};
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct Player {
     pub id: u32,
     pub name: String,
     #[cfg(not(test))]
-    pub connection: Arc<Mutex<Connection>>,
+    pub connection: Arc<tokio::sync::Mutex<Connection>>,
     pub lobby_id: Arc<Mutex<Option<u32>>>,
     pub game_id: Arc<Mutex<Option<u32>>>,
 }
@@ -32,7 +31,7 @@ impl Player {
     pub fn new(
         id: u32,
         name: String,
-        #[cfg(not(test))] connection: Arc<Mutex<Connection>>,
+        #[cfg(not(test))] connection: Arc<tokio::sync::Mutex<Connection>>,
     ) -> Self {
         Player {
             id,

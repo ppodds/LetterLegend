@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 
 use super::lobby::Lobby;
 
@@ -18,27 +18,27 @@ impl Lobbies {
         }
     }
 
-    pub async fn create_lobby(&self, max_players: u32) -> Arc<Lobby> {
-        let mut next_lobby_id = self.next_lobby_id.lock().await;
+    pub fn create_lobby(&self, max_players: u32) -> Arc<Lobby> {
+        let mut next_lobby_id = self.next_lobby_id.lock().unwrap();
         let lobby = Arc::new(Lobby::new(*next_lobby_id, max_players));
         self.lobbies
             .lock()
-            .await
+            .unwrap()
             .insert(*next_lobby_id, lobby.clone());
         *next_lobby_id += 1;
         lobby
     }
 
-    pub async fn get_lobby(&self, id: u32) -> Option<Arc<Lobby>> {
-        Some(self.lobbies.lock().await.get(&id)?.clone())
+    pub fn get_lobby(&self, id: u32) -> Option<Arc<Lobby>> {
+        Some(self.lobbies.lock().unwrap().get(&id)?.clone())
     }
 
-    pub async fn remove_lobby(&self, id: u32) -> Option<Arc<Lobby>> {
-        self.lobbies.lock().await.remove(&id)
+    pub fn remove_lobby(&self, id: u32) -> Option<Arc<Lobby>> {
+        self.lobbies.lock().unwrap().remove(&id)
     }
 
-    pub async fn get_lobbies(&self) -> Vec<Arc<Lobby>> {
-        self.lobbies.lock().await.values().cloned().collect()
+    pub fn get_lobbies(&self) -> Vec<Arc<Lobby>> {
+        self.lobbies.lock().unwrap().values().cloned().collect()
     }
 }
 
@@ -46,54 +46,53 @@ impl Lobbies {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn create_lobby_should_create_lobby() -> Result<(), Box<dyn std::error::Error>> {
+    #[test]
+    fn create_lobby_should_create_lobby() -> Result<(), Box<dyn std::error::Error>> {
         let lobbies = Lobbies::new();
-        lobbies.create_lobby(4).await;
-        assert!(lobbies.lobbies.lock().await.get(&0).is_some());
+        lobbies.create_lobby(4);
+        assert!(lobbies.lobbies.lock().unwrap().get(&0).is_some());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_lobby_with_test_lobby_should_return_lobby(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    #[test]
+    fn get_lobby_with_test_lobby_should_return_lobby() -> Result<(), Box<dyn std::error::Error>> {
         let lobbies = Lobbies::new();
         lobbies
             .lobbies
             .lock()
-            .await
+            .unwrap()
             .insert(0, Arc::new(Lobby::new(0, 4)));
-        assert!(lobbies.get_lobby(0).await.is_some());
+        assert!(lobbies.get_lobby(0).is_some());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_lobby_with_not_exist_lobby_should_return_none(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    #[test]
+    fn get_lobby_with_not_exist_lobby_should_return_none() -> Result<(), Box<dyn std::error::Error>>
+    {
         let lobbies = Lobbies::new();
-        assert!(lobbies.get_lobby(0).await.is_none());
+        assert!(lobbies.get_lobby(0).is_none());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn remove_lobby_with_test_lobby_should_remove_lobby(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    #[test]
+    fn remove_lobby_with_test_lobby_should_remove_lobby() -> Result<(), Box<dyn std::error::Error>>
+    {
         let lobbies = Lobbies::new();
         lobbies
             .lobbies
             .lock()
-            .await
+            .unwrap()
             .insert(0, Arc::new(Lobby::new(0, 4)));
-        lobbies.remove_lobby(0).await;
-        assert_eq!(lobbies.lobbies.lock().await.len(), 0);
+        lobbies.remove_lobby(0);
+        assert_eq!(lobbies.lobbies.lock().unwrap().len(), 0);
         Ok(())
     }
 
-    #[tokio::test]
-    async fn remove_lobby_with_not_exist_lobby_should_return_none(
+    #[test]
+    fn remove_lobby_with_not_exist_lobby_should_return_none(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let lobbies = Lobbies::new();
-        assert!(lobbies.remove_lobby(0).await.is_none());
+        assert!(lobbies.remove_lobby(0).is_none());
         Ok(())
     }
 }

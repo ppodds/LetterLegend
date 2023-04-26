@@ -4,16 +4,16 @@ use std::sync::Mutex;
 
 use super::lobby::Lobby;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Lobbies {
-    next_lobby_id: Arc<Mutex<u32>>,
+    next_lobby_id: Mutex<u32>,
     lobbies: Arc<Mutex<HashMap<u32, Arc<Lobby>>>>,
 }
 
 impl Lobbies {
     pub fn new() -> Self {
         Self {
-            next_lobby_id: Arc::new(Mutex::new(0)),
+            next_lobby_id: Mutex::new(0),
             lobbies: Arc::new(Mutex::new(HashMap::new())),
         }
     }

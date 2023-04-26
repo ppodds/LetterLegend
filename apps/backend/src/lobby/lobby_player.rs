@@ -4,16 +4,16 @@ use std::sync::Mutex;
 
 use crate::player::Player;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct LobbyPlayer {
-    pub ready: Arc<Mutex<bool>>,
+    pub ready: Mutex<bool>,
     pub player: Arc<Player>,
 }
 
 impl LobbyPlayer {
     pub fn new(player: Arc<Player>) -> Self {
         Self {
-            ready: Arc::new(Mutex::new(false)),
+            ready: Mutex::new(false),
             player,
         }
     }

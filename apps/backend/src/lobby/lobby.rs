@@ -5,11 +5,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use super::lobby_player::LobbyPlayer;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Lobby {
     id: u32,
     max_players: u32,
-    players: Arc<Mutex<HashMap<u32, Arc<LobbyPlayer>>>>,
+    players: Mutex<HashMap<u32, Arc<LobbyPlayer>>>,
 }
 
 impl Lobby {
@@ -19,7 +19,7 @@ impl Lobby {
         Self {
             id,
             max_players,
-            players: Arc::new(Mutex::new(HashMap::new())),
+            players: Mutex::new(HashMap::new()),
         }
     }
 

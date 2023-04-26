@@ -9,7 +9,7 @@ use super::lobby_player::LobbyPlayer;
 pub struct Lobby {
     id: u32,
     max_players: u32,
-    players: Arc<Mutex<HashMap<u32, Arc<Mutex<LobbyPlayer>>>>>,
+    players: Arc<Mutex<HashMap<u32, Arc<LobbyPlayer>>>>,
 }
 
 impl Lobby {
@@ -25,33 +25,33 @@ impl Lobby {
 
     pub async fn add_player(
         &self,
-        player: Arc<Mutex<Player>>,
+        player: Arc<Player>,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        if player.lock().await.lobby_id.is_some() {
+        let mut player_lobby_id = player.lobby_id.lock().await;
+        if player_lobby_id.is_some() {
             return Err("player already in a lobby".into());
         }
-
-        player.lock().await.lobby_id = Some(self.id);
-        self.players.lock().await.insert(
-            player.lock().await.id,
-            Arc::new(Mutex::new(LobbyPlayer::new(player.clone()))),
-        );
+        *player_lobby_id = Some(self.id);
+        self.players
+            .lock()
+            .await
+            .insert(player.id, Arc::new(LobbyPlayer::new(player.clone())));
         Ok(())
     }
 
-    pub async fn get_player(&self, id: u32) -> Option<Arc<Mutex<LobbyPlayer>>> {
+    pub async fn get_player(&self, id: u32) -> Option<Arc<LobbyPlayer>> {
         Some(self.players.lock().await.get(&id)?.clone())
     }
 
-    pub async fn get_players(&self) -> Vec<Arc<Mutex<LobbyPlayer>>> {
+    pub async fn get_players(&self) -> Vec<Arc<LobbyPlayer>> {
         self.players.lock().await.values().cloned().collect()
     }
 
-    pub async fn remove_player(&self, id: u32) -> Option<Arc<Mutex<LobbyPlayer>>> {
+    pub async fn remove_player(&self, id: u32) -> Option<Arc<LobbyPlayer>> {
         let player = self.players.lock().await.remove(&id);
 
         if let Some(player) = player.clone() {
-            player.lock().await.player.lock().await.lobby_id = None;
+            *player.player.lobby_id.lock().await = None;
         }
 
         player
@@ -88,11 +88,11 @@ mod tests {
     async fn add_player_with_test_player_should_be_added() -> Result<(), Box<dyn std::error::Error>>
     {
         let lobby = Lobby::new(0, 4);
-        let player = Arc::new(Mutex::new(Player::new(0, "test".to_string())));
+        let player = Arc::new(Player::new(0, "test".to_string()));
         let result = lobby.add_player(player.clone()).await;
         assert!(result.is_ok());
         assert!(lobby.players.lock().await.get(&0).is_some());
-        assert_eq!(player.lock().await.lobby_id.unwrap(), 0);
+        assert_eq!(player.lobby_id.lock().await.unwrap(), 0);
         Ok(())
     }
 
@@ -100,8 +100,8 @@ mod tests {
     async fn add_player_with_test_player_already_in_lobby_should_return_error(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let lobby = Lobby::new(0, 4);
-        let player = Arc::new(Mutex::new(Player::new(0, "test".to_string())));
-        player.lock().await.lobby_id = Some(1);
+        let player = Arc::new(Player::new(0, "test".to_string()));
+        *player.lobby_id.lock().await = Some(1);
         assert!(lobby.add_player(player).await.is_err());
         Ok(())
     }
@@ -112,14 +112,14 @@ mod tests {
         let lobby = Lobby::new(0, 4);
         lobby.players.lock().await.insert(
             0,
-            Arc::new(Mutex::new(LobbyPlayer::new(Arc::new(Mutex::new(
-                Player::new(0, "test".to_string()),
-            ))))),
+            Arc::new(LobbyPlayer::new(Arc::new(Player::new(
+                0,
+                "test".to_string(),
+            )))),
         );
-        let t = lobby.get_player(0).await.unwrap();
-        let player = t.lock().await;
-        assert_eq!(player.player.lock().await.id, 0);
-        assert_eq!(player.player.lock().await.name, "test");
+        let player = lobby.get_player(0).await.unwrap().player.clone();
+        assert_eq!(player.id, 0);
+        assert_eq!(player.name, "test");
         Ok(())
     }
 
@@ -138,16 +138,18 @@ mod tests {
         for i in 0..3 {
             lobby.players.lock().await.insert(
                 i,
-                Arc::new(Mutex::new(LobbyPlayer::new(Arc::new(Mutex::new(
-                    Player::new(i, format!("test{}", i)),
-                ))))),
+                Arc::new(LobbyPlayer::new(Arc::new(Player::new(
+                    i,
+                    format!("test{}", i),
+                )))),
             );
         }
 
         for lobby_player in lobby.get_players().await {
-            let t = lobby_player.lock().await;
-            let player = t.player.lock().await;
-            assert_eq!(player.name, format!("test{}", player.id));
+            assert_eq!(
+                lobby_player.player.name,
+                format!("test{}", lobby_player.player.id)
+            );
         }
         Ok(())
     }
@@ -158,22 +160,15 @@ mod tests {
         let lobby = Lobby::new(0, 4);
         lobby.players.lock().await.insert(
             0,
-            Arc::new(Mutex::new(LobbyPlayer::new(Arc::new(Mutex::new(
-                Player::new(0, format!("test{}", 0)),
-            ))))),
+            Arc::new(LobbyPlayer::new(Arc::new(Player::new(
+                0,
+                format!("test{}", 0),
+            )))),
         );
 
         let player = lobby.remove_player(0).await;
         assert_eq!(lobby.players.lock().await.len(), 0);
-        assert!(player
-            .unwrap()
-            .lock()
-            .await
-            .player
-            .lock()
-            .await
-            .lobby_id
-            .is_none());
+        assert!(player.unwrap().player.lobby_id.lock().await.is_none());
         Ok(())
     }
 

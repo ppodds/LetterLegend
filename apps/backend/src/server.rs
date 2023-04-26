@@ -25,7 +25,7 @@ pub struct Server {
     host: String,
     port: u32,
     online_player_map: ClientMap,
-    lobbies: Arc<Mutex<Lobbies>>,
+    lobbies: Arc<Lobbies>,
     game_map: GameMap,
 }
 
@@ -34,7 +34,7 @@ pub struct Context {
     pub payload: Vec<u8>,
 }
 
-type ClientMap = Arc<Mutex<HashMap<u32, Arc<Mutex<Player>>>>>;
+type ClientMap = Arc<Mutex<HashMap<u32, Arc<Player>>>>;
 type GameMap = Arc<Mutex<HashMap<u32, Arc<Mutex<Vec<u32>>>>>>;
 
 unsafe impl Send for Server {}
@@ -135,7 +135,7 @@ impl Server {
             host,
             port,
             online_player_map: ClientMap::new(Mutex::new(HashMap::new())),
-            lobbies: Arc::new(Mutex::new(Lobbies::new())),
+            lobbies: Arc::new(Lobbies::new()),
             game_map: GameMap::new(Mutex::new(HashMap::new())),
         }
     }
@@ -147,7 +147,7 @@ impl Server {
             host: String::from("0.0.0.0"),
             port: 45678,
             online_player_map: ClientMap::new(Mutex::new(HashMap::new())),
-            lobbies: Arc::new(Mutex::new(Lobbies::new())),
+            lobbies: Arc::new(Lobbies::new()),
             game_map: GameMap::new(Mutex::new(HashMap::new())),
         }
     }
@@ -164,12 +164,12 @@ impl Server {
 
         self.online_player_map.lock().await.insert(
             client_id,
-            Arc::new(Mutex::new(Player::new(
+            Arc::new(Player::new(
                 client_id,
                 name,
                 #[cfg(not(test))]
                 connection,
-            ))),
+            )),
         );
 
         self.player_timeout_queue
@@ -183,21 +183,19 @@ impl Server {
     async fn disconnect(&self, client_id: u32) -> Result<(), Box<dyn Error + Sync + Send>> {
         match self.online_player_map.lock().await.remove(&client_id) {
             Some(player) => {
-                let player = player.lock().await;
                 self.player_timeout_queue.lock().await.remove(&client_id);
-                if player.lobby_id.is_some() {
+                if player.lobby_id.lock().await.is_some() {
                     let lobby = self
                         .lobbies
                         .clone()
-                        .lock()
-                        .await
-                        .get_lobby(player.lobby_id.unwrap())
+                        .get_lobby(player.lobby_id.lock().await.unwrap())
                         .await
                         .unwrap();
-                    lobby.lock().await.remove_player(player.id).await;
+                    lobby.remove_player(player.id).await;
                 }
-                if player.game_id.is_some() {
-                    let game = self.game_map.lock().await[&player.game_id.unwrap()].clone();
+                if player.game_id.lock().await.is_some() {
+                    let game =
+                        self.game_map.lock().await[&player.game_id.lock().await.unwrap()].clone();
                     game.lock().await.retain(|&x| x != client_id);
                 }
                 Ok(())
@@ -222,24 +220,18 @@ impl Server {
         &self,
         client_id: u32,
         max_players: u32,
-    ) -> Result<Arc<Mutex<Lobby>>, Box<dyn Error + Sync + Send>> {
+    ) -> Result<Arc<Lobby>, Box<dyn Error + Sync + Send>> {
         if max_players < 4 || max_players > 8 {
             return Err("Invalid max players".into());
         }
 
-        let lobby = self.lobbies.lock().await.create_lobby(max_players).await;
+        let lobby = self.lobbies.create_lobby(max_players).await;
         let players = self.online_player_map.lock().await;
         let player = players.get(&client_id);
         if player.is_none() {
             return Err("Player not found".into());
         }
-        match lobby
-            .clone()
-            .lock()
-            .await
-            .add_player(player.unwrap().clone())
-            .await
-        {
+        match lobby.clone().add_player(player.unwrap().clone()).await {
             Ok(_) => Ok(lobby),
             Err(e) => Err(e),
         }
@@ -249,8 +241,8 @@ impl Server {
         &self,
         client_id: u32,
         lobby_id: u32,
-    ) -> Result<Arc<Mutex<Lobby>>, Box<dyn Error + Sync + Send>> {
-        let lobby = self.lobbies.clone().lock().await.get_lobby(lobby_id).await;
+    ) -> Result<Arc<Lobby>, Box<dyn Error + Sync + Send>> {
+        let lobby = self.lobbies.clone().get_lobby(lobby_id).await;
 
         if lobby.is_none() {
             return Err("Lobby not found".into());
@@ -264,13 +256,7 @@ impl Server {
         }
 
         let lobby = lobby.unwrap().clone();
-        match lobby
-            .clone()
-            .lock()
-            .await
-            .add_player(player.unwrap().clone())
-            .await
-        {
+        match lobby.clone().add_player(player.unwrap().clone()).await {
             Ok(_) => Ok(lobby),
             Err(e) => return Err(e),
         }
@@ -284,25 +270,20 @@ impl Server {
             return Err("Player not found".into());
         }
 
-        let lobby_id = player.unwrap().lock().await.lobby_id;
+        let lobby = {
+            let lobby_id = player.unwrap().lobby_id.lock().await;
 
-        if lobby_id.is_none() {
-            return Err("Player not in lobby".into());
-        }
-
-        let lobby = self
-            .lobbies
-            .clone()
-            .lock()
-            .await
-            .get_lobby(lobby_id.unwrap())
-            .await;
+            if lobby_id.is_none() {
+                return Err("Player not in lobby".into());
+            }
+            self.lobbies.clone().get_lobby(lobby_id.unwrap()).await
+        };
 
         if lobby.is_none() {
             return Err("Lobby not found".into());
         }
 
-        lobby.unwrap().lock().await.remove_player(client_id).await;
+        lobby.unwrap().remove_player(client_id).await;
         Ok(())
     }
 
@@ -335,23 +316,23 @@ impl Server {
             None => return Err("Player not found".into()),
         };
 
-        let lobby_id = match player.lock().await.lobby_id {
+        let lobby_id = match *player.lobby_id.lock().await {
             Some(id) => id,
             None => return Err("Player not in lobby".into()),
         };
 
-        let lobby = match self.lobbies.lock().await.get_lobby(lobby_id).await {
+        let lobby = match self.lobbies.get_lobby(lobby_id).await {
             Some(lobby) => lobby.clone(),
             None => return Err("Lobby not found".into()),
         };
 
-        let player = lobby.lock().await.get_player(client_id).await;
+        let player = lobby.get_player(client_id).await;
 
         match player {
             Some(player) => {
-                let mut player = player.lock().await;
-                player.ready = !player.ready;
-                return Ok(player.ready);
+                let mut ready = player.ready.lock().await;
+                *ready = !*ready;
+                return Ok(*ready);
             }
             None => return Err("Player not found".into()),
         }
@@ -537,7 +518,7 @@ mod tests {
         let server = Server::new();
         server.connect(0, String::from("test")).await?;
         let online_player_map = server.online_player_map.lock().await;
-        let player = online_player_map.get(&0).unwrap().lock().await;
+        let player = online_player_map.get(&0).unwrap();
         assert_eq!(player.id, 0);
         assert_eq!(player.name, String::from("test"));
         Ok(())
@@ -566,10 +547,11 @@ mod tests {
     async fn disconnect_with_user_already_connected_should_be_removed(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
         server
             .player_timeout_queue
             .lock()
@@ -593,12 +575,13 @@ mod tests {
     async fn create_lobby_with_test_user_should_create_lobby(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
         server.create_lobby(0, 4).await?;
-        assert!(server.lobbies.lock().await.get_lobby(0).await.is_some());
+        assert!(server.lobbies.get_lobby(0).await.is_some());
         Ok(())
     }
 
@@ -606,10 +589,11 @@ mod tests {
     async fn create_lobby_with_test_user_and_invaild_max_players_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
         assert!(server.create_lobby(0, 3).await.is_err());
         assert!(server.create_lobby(0, 9).await.is_err());
         Ok(())
@@ -627,20 +611,17 @@ mod tests {
     async fn create_lobby_with_test_user_should_contains_test_user(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
         server.create_lobby(0, 4).await?;
         assert!(server
             .lobbies
-            .lock()
-            .await
             .get_lobby(0)
             .await
             .unwrap()
-            .lock()
-            .await
             .get_player(0)
             .await
             .is_some());
@@ -651,21 +632,18 @@ mod tests {
     async fn join_lobby_with_test_user_and_test_lobby_should_join_lobby(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
-        server.lobbies.lock().await.create_lobby(4).await;
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
+        server.lobbies.create_lobby(4).await;
         server.join_lobby(0, 0).await?;
         assert!(server
             .lobbies
-            .lock()
-            .await
             .get_lobby(0)
             .await
             .unwrap()
-            .lock()
-            .await
             .get_player(0)
             .await
             .is_some());
@@ -676,10 +654,11 @@ mod tests {
     async fn join_lobby_with_not_exist_user_and_test_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
         server.create_lobby(0, 4).await?;
         assert!(server.join_lobby(1, 0).await.is_err());
         Ok(())
@@ -689,10 +668,11 @@ mod tests {
     async fn join_lobby_with_test_user_and_not_exist_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
         assert!(server.join_lobby(0, 0).await.is_err());
         Ok(())
     }
@@ -709,28 +689,20 @@ mod tests {
     async fn quit_lobby_with_test_user_in_test_lobby_should_quit_lobby(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
-        let lobby = server.lobbies.lock().await.create_lobby(4).await;
-        let player = Arc::new(Mutex::new(Player::new(0, String::from("test"))));
+        let player = Arc::new(Player::new(0, String::from("test")));
         server
             .online_player_map
             .lock()
             .await
             .insert(0, player.clone());
-        lobby.lock().await.add_player(player).await?;
+        let lobby = server.lobbies.create_lobby(4).await;
+        lobby.add_player(player).await?;
         server.quit_lobby(0).await?;
         assert!(server
             .lobbies
-            .lock()
-            .await
             .get_lobby(0)
             .await
             .unwrap()
-            .lock()
-            .await
             .get_player(0)
             .await
             .is_none());
@@ -749,11 +721,12 @@ mod tests {
     async fn quit_lobby_with_test_user_but_not_in_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
-        let player = Arc::new(Mutex::new(Player::new(0, String::from("test"))));
+        let player = Arc::new(Player::new(0, String::from("test")));
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, player.clone());
         server
             .online_player_map
             .lock()
@@ -767,7 +740,7 @@ mod tests {
     async fn list_lobby_with_test_looby_should_return_test_lobby(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.lobbies.lock().await.create_lobby(4).await;
+        server.lobbies.create_lobby(4).await;
         let lobby_list = server.list_lobby().await?;
         assert_eq!(lobby_list.lobby_infos.len(), 1);
         Ok(())
@@ -782,10 +755,11 @@ mod tests {
             .lock()
             .await
             .push(0, Reverse(Instant::now() - Duration::from_secs(60)));
-        server.online_player_map.lock().await.insert(
-            0,
-            Arc::new(Mutex::new(Player::new(0, String::from("test")))),
-        );
+        server
+            .online_player_map
+            .lock()
+            .await
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
         assert_eq!(server.kick_timeout_users().await?, 1);
         Ok(())
     }
@@ -803,10 +777,11 @@ mod tests {
                     false => Reverse(Instant::now() - Duration::from_secs(60)),
                 },
             );
-            server.online_player_map.lock().await.insert(
-                i,
-                Arc::new(Mutex::new(Player::new(i, String::from("test")))),
-            );
+            server
+                .online_player_map
+                .lock()
+                .await
+                .insert(i, Arc::new(Player::new(i, String::from("test"))));
         }
 
         assert_eq!(server.kick_timeout_users().await?, 2);
@@ -817,26 +792,16 @@ mod tests {
     async fn ready_with_test_user_in_test_lobby_should_ready(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        let player = Arc::new(Mutex::new(Player::new(0, String::from("test"))));
+        let player = Arc::new(Player::new(0, String::from("test")));
         server
             .online_player_map
             .lock()
             .await
             .insert(0, player.clone());
-        let lobby = server.lobbies.lock().await.create_lobby(4).await;
-        lobby.lock().await.add_player(player.clone()).await?;
+        let lobby = server.lobbies.create_lobby(4).await;
+        lobby.add_player(player.clone()).await?;
         server.ready(0).await?;
-        assert!(
-            lobby
-                .lock()
-                .await
-                .get_player(0)
-                .await
-                .unwrap()
-                .lock()
-                .await
-                .ready
-        );
+        assert!(*lobby.get_player(0).await.unwrap().ready.lock().await);
         Ok(())
     }
 
@@ -844,35 +809,17 @@ mod tests {
     async fn ready_with_test_user_in_test_lobby_should_not_ready(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        let player = Arc::new(Mutex::new(Player::new(0, String::from("test"))));
+        let player = Arc::new(Player::new(0, String::from("test")));
         server
             .online_player_map
             .lock()
             .await
             .insert(0, player.clone());
-        let lobby = server.lobbies.lock().await.create_lobby(4).await;
-        lobby.lock().await.add_player(player.clone()).await?;
-        lobby
-            .lock()
-            .await
-            .get_player(0)
-            .await
-            .unwrap()
-            .lock()
-            .await
-            .ready = true;
+        let lobby = server.lobbies.create_lobby(4).await;
+        lobby.add_player(player.clone()).await?;
+        *lobby.get_player(0).await.unwrap().ready.lock().await = true;
         server.ready(0).await?;
-        assert!(
-            !lobby
-                .lock()
-                .await
-                .get_player(0)
-                .await
-                .unwrap()
-                .lock()
-                .await
-                .ready
-        );
+        assert!(!*lobby.get_player(0).await.unwrap().ready.lock().await);
         Ok(())
     }
 }

@@ -1,19 +1,17 @@
 #[cfg(not(test))]
 use crate::connection::Connection;
 use core::hash::{Hash, Hasher};
-#[cfg(not(test))]
 use std::sync::Arc;
-#[cfg(not(test))]
 use tokio::sync::Mutex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Player {
     pub id: u32,
     pub name: String,
     #[cfg(not(test))]
     pub connection: Arc<Mutex<Connection>>,
-    pub lobby_id: Option<u32>,
-    pub game_id: Option<u32>,
+    pub lobby_id: Arc<Mutex<Option<u32>>>,
+    pub game_id: Arc<Mutex<Option<u32>>>,
 }
 
 impl PartialEq for Player {
@@ -41,8 +39,8 @@ impl Player {
             name,
             #[cfg(not(test))]
             connection,
-            lobby_id: None,
-            game_id: None,
+            lobby_id: Arc::new(Mutex::new(None)),
+            game_id: Arc::new(Mutex::new(None)),
         }
     }
 }

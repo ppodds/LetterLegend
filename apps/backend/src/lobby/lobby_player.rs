@@ -6,14 +6,14 @@ use crate::player::Player;
 
 #[derive(Clone, Debug)]
 pub struct LobbyPlayer {
-    pub ready: bool,
-    pub player: Arc<Mutex<Player>>,
+    pub ready: Arc<Mutex<bool>>,
+    pub player: Arc<Player>,
 }
 
 impl LobbyPlayer {
-    pub fn new(player: Arc<Mutex<Player>>) -> Self {
+    pub fn new(player: Arc<Player>) -> Self {
         Self {
-            ready: false,
+            ready: Arc::new(Mutex::new(false)),
             player,
         }
     }

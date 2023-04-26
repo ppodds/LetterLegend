@@ -291,7 +291,7 @@ impl Server {
     }
 
     fn list_lobby(&self) -> Result<LobbyInfos, Box<dyn Error + Sync + Send>> {
-        Ok(LobbyInfos::from_lobbies(self.lobbies.clone()))
+        Ok(LobbyInfos::from(self.lobbies.clone()))
     }
 
     fn kick_timeout_users(&self) -> Result<u32, Box<dyn Error + Sync + Send>> {
@@ -407,7 +407,7 @@ impl Server {
                     tx.send(Frame::Response(Response::CreateLobby(
                         crate::model::lobby::create::CreateResponse {
                             success: true,
-                            lobby: Some(crate::model::lobby::lobby::Lobby::from_lobby(lobby)),
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby)),
                         },
                     )))
                     .await?;
@@ -429,7 +429,7 @@ impl Server {
                     tx.send(Frame::Response(Response::JoinLobby(
                         crate::model::lobby::join::JoinResponse {
                             success: true,
-                            lobby: Some(crate::model::lobby::lobby::Lobby::from_lobby(res)),
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from(res)),
                         },
                     )))
                     .await?;

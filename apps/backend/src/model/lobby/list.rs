@@ -33,19 +33,24 @@ mod tests {
 
     #[test]
     fn from_lobby_with_lobby_return_lobby_info() -> Result<(), Box<dyn Error + Send + Sync>> {
-        let lobby = Arc::new(Lobby::new(0, 4));
+        let lobby = Arc::new(Lobby::new(
+            0,
+            4,
+            Arc::new(Player::new(0, "test".to_string())),
+        ));
         let lobby_info = LobbyInfo::from(lobby);
         assert_eq!(lobby_info.id, 0);
         assert_eq!(lobby_info.max_players, 4);
-        assert_eq!(lobby_info.current_players, 0);
+        assert_eq!(lobby_info.current_players, 1);
         Ok(())
     }
 
     #[test]
     fn from_lobby_with_a_player_in_lobby_lobby_info_current_players_should_be_one(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let lobby = Arc::new(Lobby::new(0, 4));
-        lobby.add_player(Arc::new(Player::new(0, String::from("test"))))?;
+        let player = Arc::new(Player::new(0, String::from("test")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player.clone())?;
         let lobby_info = LobbyInfo::from(lobby);
         assert_eq!(lobby_info.current_players, 1);
         Ok(())
@@ -63,7 +68,7 @@ mod tests {
     fn from_lobbies_with_lobbies_has_one_lobby_return_lobby_infos(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let lobbies = Arc::new(Lobbies::new());
-        lobbies.create_lobby(4);
+        lobbies.create_lobby(4, Arc::new(Player::new(0, "test".to_string())));
         let lobby_infos = LobbyInfos::from(lobbies);
         assert_eq!(lobby_infos.lobby_infos[0].id, 0);
         Ok(())

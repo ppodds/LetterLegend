@@ -6,10 +6,10 @@ use prost::Message;
 use crate::{
     model::control::connect::ConnectRequest, model::control::connect::ConnectResponse,
     model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
-    model::lobby::create::CreateRequest, model::lobby::create::CreateResponse,
-    model::lobby::join::JoinRequest, model::lobby::join::JoinResponse,
-    model::lobby::list::ListResponse, model::lobby::quit::QuitResponse,
-    model::lobby::ready::ReadyResponse, operation::Operation,
+    model::game::start::StartResponse, model::lobby::create::CreateRequest,
+    model::lobby::create::CreateResponse, model::lobby::join::JoinRequest,
+    model::lobby::join::JoinResponse, model::lobby::list::ListResponse,
+    model::lobby::quit::QuitResponse, model::lobby::ready::ReadyResponse, operation::Operation,
 };
 
 #[derive(Debug)]
@@ -29,6 +29,7 @@ pub enum Request {
     QuitLobby,
     ListLobby,
     Ready,
+    StartGame,
 }
 
 #[derive(Debug, Clone)]
@@ -41,6 +42,7 @@ pub enum Response {
     QuitLobby(QuitResponse),
     ListLobby(ListResponse),
     Ready(ReadyResponse),
+    StartGame(StartResponse),
 }
 
 #[derive(Debug)]

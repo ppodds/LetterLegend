@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package game.tile;
+option csharp_namespace = "Protos.Game";
+
+message Tile {
+    uint32 owner = 1;
+    string char = 2;
+}

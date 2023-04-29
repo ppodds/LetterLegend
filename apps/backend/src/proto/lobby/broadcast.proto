@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package lobby.broadcast;
+option csharp_namespace = "Protos.Lobby";
+
+import "lobby/lobby.proto";
+
+enum LobbyEvent {
+  JOIN = 0;
+  LEAVE = 1;
+  DESTROY = 2;
+  START = 3;
+}
+
+message LobbyBroadcast {
+  LobbyEvent event = 1;
+  optional lobby.Lobby lobby = 2;
+}

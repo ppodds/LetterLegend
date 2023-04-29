@@ -6,6 +6,8 @@ use std::time::Instant;
 
 use crate::connection::Connection;
 use crate::frame::{Frame, Request, Response};
+use crate::game::game::Game;
+use crate::game::games::Games;
 use crate::lobby::lobbies::Lobbies;
 use crate::lobby::lobby::Lobby;
 use crate::model::control::{
@@ -26,7 +28,7 @@ pub struct Server {
     port: u32,
     online_player_map: ClientMap,
     lobbies: Arc<Lobbies>,
-    game_map: GameMap,
+    games: Arc<Games>,
 }
 
 pub struct Context {
@@ -35,7 +37,6 @@ pub struct Context {
 }
 
 type ClientMap = Arc<Mutex<HashMap<u32, Arc<Player>>>>;
-type GameMap = Arc<Mutex<HashMap<u32, Arc<Mutex<Vec<u32>>>>>>;
 
 unsafe impl Send for Server {}
 unsafe impl Sync for Server {}
@@ -134,7 +135,7 @@ impl Server {
             port,
             online_player_map: ClientMap::new(Mutex::new(HashMap::new())),
             lobbies: Arc::new(Lobbies::new()),
-            game_map: GameMap::new(Mutex::new(HashMap::new())),
+            games: Arc::new(Games::new()),
         }
     }
 
@@ -146,7 +147,7 @@ impl Server {
             port: 45678,
             online_player_map: ClientMap::new(Mutex::new(HashMap::new())),
             lobbies: Arc::new(Lobbies::new()),
-            game_map: GameMap::new(Mutex::new(HashMap::new())),
+            games: Arc::new(Games::new()),
         }
     }
 
@@ -196,10 +197,12 @@ impl Server {
                     lobby.remove_player(player.id);
                 }
                 if player.game_id.lock().unwrap().is_some() {
-                    let game = self.game_map.lock().unwrap()
-                        [&player.game_id.lock().unwrap().unwrap()]
+                    let game = self
+                        .games
+                        .get_game(player.game_id.lock().unwrap().unwrap())
+                        .unwrap()
                         .clone();
-                    game.lock().unwrap().retain(|&x| x != client_id);
+                    game.players.lock().unwrap().retain(|&k, _| k != client_id);
                 }
                 Ok(())
             }
@@ -227,17 +230,13 @@ impl Server {
         if max_players < 4 || max_players > 8 {
             return Err("Invalid max players".into());
         }
-
-        let lobby = self.lobbies.create_lobby(max_players);
-        let players = self.online_player_map.lock().unwrap();
-        let player = players.get(&client_id);
-        if player.is_none() {
-            return Err("Player not found".into());
-        }
-        match lobby.clone().add_player(player.unwrap().clone()) {
-            Ok(_) => Ok(lobby),
-            Err(e) => Err(e),
-        }
+        Ok(self.lobbies.create_lobby(
+            max_players,
+            match self.online_player_map.lock().unwrap().get(&client_id) {
+                Some(player) => player.clone(),
+                None => return Err("Player not found".into()),
+            },
+        ))
     }
 
     fn join_lobby(
@@ -339,6 +338,34 @@ impl Server {
             }
             None => return Err("Player not found".into()),
         }
+    }
+
+    fn start_game(&self, client_id: u32) -> Result<Arc<Game>, Box<dyn Error + Sync + Send>> {
+        let player = match self.online_player_map.lock().unwrap().get(&client_id) {
+            Some(player) => player.clone(),
+            None => return Err("Player not found".into()),
+        };
+        let lobby = match self
+            .lobbies
+            .get_lobby(match *player.lobby_id.lock().unwrap() {
+                Some(id) => id,
+                None => return Err("Player not in lobby".into()),
+            }) {
+            Some(lobby) => lobby.clone(),
+            None => return Err("Lobby not found".into()),
+        };
+
+        if player.id != lobby.leader.id {
+            return Err("Only owner can start game".into());
+        }
+
+        Ok(self.games.create_game(
+            lobby
+                .get_players()
+                .iter()
+                .map(|x| x.player.clone())
+                .collect(),
+        ))
     }
 
     async fn handle_request(
@@ -500,6 +527,29 @@ impl Server {
                     Err(e)
                 }
             },
+            Request::StartGame => match self.start_game(client_id) {
+                Ok(res) => {
+                    let board = res.get_board().lock().unwrap().clone();
+                    tx.send(Frame::Response(Response::StartGame(
+                        crate::model::game::start::StartResponse {
+                            success: true,
+                            board: Some(crate::model::game::board::Board::from(board)),
+                        },
+                    )))
+                    .await?;
+                    Ok(())
+                }
+                Err(e) => {
+                    tx.send(Frame::Response(Response::StartGame(
+                        crate::model::game::start::StartResponse {
+                            success: false,
+                            board: None,
+                        },
+                    )))
+                    .await?;
+                    Err(e)
+                }
+            },
         }
     }
 }
@@ -621,12 +671,13 @@ mod tests {
     fn join_lobby_with_test_user_and_test_lobby_should_join_lobby(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
+        let player = Arc::new(Player::new(0, String::from("test")));
         server
             .online_player_map
             .lock()
             .unwrap()
-            .insert(0, Arc::new(Player::new(0, String::from("test"))));
-        server.lobbies.create_lobby(4);
+            .insert(0, player.clone());
+        server.lobbies.create_lobby(4, player.clone());
         server.join_lobby(0, 0)?;
         assert!(server.lobbies.get_lobby(0).unwrap().get_player(0).is_some());
         Ok(())
@@ -677,7 +728,7 @@ mod tests {
             .lock()
             .unwrap()
             .insert(0, player.clone());
-        let lobby = server.lobbies.create_lobby(4);
+        let lobby = server.lobbies.create_lobby(4, player.clone());
         lobby.add_player(player)?;
         server.quit_lobby(0)?;
         assert!(server.lobbies.get_lobby(0).unwrap().get_player(0).is_none());
@@ -715,7 +766,9 @@ mod tests {
     fn list_lobby_with_test_looby_should_return_test_lobby(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let server = Server::new();
-        server.lobbies.create_lobby(4);
+        server
+            .lobbies
+            .create_lobby(4, Arc::new(Player::new(0, String::from("test"))));
         let lobby_list = server.list_lobby()?;
         assert_eq!(lobby_list.lobby_infos.len(), 1);
         Ok(())
@@ -773,7 +826,7 @@ mod tests {
             .lock()
             .unwrap()
             .insert(0, player.clone());
-        let lobby = server.lobbies.create_lobby(4);
+        let lobby = server.lobbies.create_lobby(4, player.clone());
         lobby.add_player(player.clone())?;
         server.ready(0)?;
         assert!(*lobby.get_player(0).unwrap().ready.lock().unwrap());
@@ -790,11 +843,29 @@ mod tests {
             .lock()
             .unwrap()
             .insert(0, player.clone());
-        let lobby = server.lobbies.create_lobby(4);
+        let lobby = server.lobbies.create_lobby(4, player.clone());
         lobby.add_player(player.clone())?;
         *lobby.get_player(0).unwrap().ready.lock().unwrap() = true;
         server.ready(0)?;
         assert!(!*lobby.get_player(0).unwrap().ready.lock().unwrap());
+        Ok(())
+    }
+
+    #[test]
+    fn start_game_with_test_user_in_test_lobby_should_start_game(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let server = Server::new();
+        let player = Arc::new(Player::new(0, String::from("test")));
+        server
+            .online_player_map
+            .lock()
+            .unwrap()
+            .insert(0, player.clone());
+        let lobby = server.lobbies.create_lobby(4, player.clone());
+        lobby.add_player(player.clone())?;
+        server.ready(0)?;
+        let game = server.start_game(0)?;
+        assert!(game.players.lock().unwrap().contains_key(&0));
         Ok(())
     }
 }

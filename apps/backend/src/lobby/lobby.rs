@@ -10,16 +10,21 @@ pub struct Lobby {
     id: u32,
     max_players: u32,
     players: Mutex<HashMap<u32, Arc<LobbyPlayer>>>,
+    pub leader: Arc<Player>,
 }
 
 impl Lobby {
-    pub fn new(id: u32, max_players: u32) -> Self {
+    pub fn new(id: u32, max_players: u32, leader: Arc<Player>) -> Self {
         debug_assert!(max_players >= 4, "max_players must be greater than 4");
         debug_assert!(max_players <= 8, "max_players must be less than 8");
         Self {
             id,
             max_players,
-            players: Mutex::new(HashMap::new()),
+            players: Mutex::new(HashMap::from([(
+                leader.id,
+                Arc::new(LobbyPlayer::new(leader.clone())),
+            )])),
+            leader,
         }
     }
 
@@ -69,21 +74,21 @@ mod tests {
 
     #[test]
     fn get_id_with_id_0_returns_0() -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Lobby::new(0, 4);
+        let lobby = Lobby::new(0, 4, Arc::new(Player::new(0, "test".to_string())));
         assert_eq!(lobby.get_id(), 0);
         Ok(())
     }
 
     #[test]
     fn get_max_players_with_max_players_4_returns_4() -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Lobby::new(0, 4);
+        let lobby = Lobby::new(0, 4, Arc::new(Player::new(0, "test".to_string())));
         assert_eq!(lobby.get_max_players(), 4);
         Ok(())
     }
 
     #[test]
     fn add_player_with_test_player_should_be_added() -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Lobby::new(0, 4);
+        let lobby = Lobby::new(0, 4, Arc::new(Player::new(0, "test".to_string())));
         let player = Arc::new(Player::new(0, "test".to_string()));
         let result = lobby.add_player(player.clone());
         assert!(result.is_ok());
@@ -95,7 +100,7 @@ mod tests {
     #[test]
     fn add_player_with_test_player_already_in_lobby_should_return_error(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Lobby::new(0, 4);
+        let lobby = Lobby::new(0, 4, Arc::new(Player::new(0, "test".to_string())));
         let player = Arc::new(Player::new(0, "test".to_string()));
         *player.lobby_id.lock().unwrap() = Some(1);
         assert!(lobby.add_player(player).is_err());
@@ -105,7 +110,7 @@ mod tests {
     #[test]
     fn get_player_with_test_player_should_return_test_player(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Lobby::new(0, 4);
+        let lobby = Lobby::new(0, 4, Arc::new(Player::new(0, "test".to_string())));
         lobby.players.lock().unwrap().insert(
             0,
             Arc::new(LobbyPlayer::new(Arc::new(Player::new(
@@ -122,15 +127,15 @@ mod tests {
     #[test]
     fn get_player_with_not_exist_player_should_return_none(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Lobby::new(0, 4);
-        assert!(lobby.get_player(0).is_none());
+        let lobby = Lobby::new(0, 4, Arc::new(Player::new(0, "test".to_string())));
+        assert!(lobby.get_player(1).is_none());
         Ok(())
     }
 
     #[test]
     fn get_players_with_three_players_should_return_players(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Lobby::new(0, 4);
+        let lobby = Lobby::new(0, 4, Arc::new(Player::new(0, "test".to_string())));
         for i in 0..3 {
             lobby.players.lock().unwrap().insert(
                 i,
@@ -153,7 +158,7 @@ mod tests {
     #[test]
     fn remove_player_with_test_player_should_remove_player(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Lobby::new(0, 4);
+        let lobby = Lobby::new(0, 4, Arc::new(Player::new(0, "test".to_string())));
         lobby.players.lock().unwrap().insert(
             0,
             Arc::new(LobbyPlayer::new(Arc::new(Player::new(
@@ -171,8 +176,8 @@ mod tests {
     #[test]
     fn remove_player_with_not_exist_player_should_return_none(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Lobby::new(0, 4);
-        assert!(lobby.remove_player(0).is_none());
+        let lobby = Lobby::new(0, 4, Arc::new(Player::new(0, "test".to_string())));
+        assert!(lobby.remove_player(1).is_none());
         Ok(())
     }
 }

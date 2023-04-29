@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package game.board;
+option csharp_namespace = "Protos.Game";
+
+import "game/tile.proto";
+
+message Board {
+    repeated Row rows = 1;
+}
+
+message Row {
+    repeated Column columns = 1;
+}
+
+message Column {
+    optional tile.Tile tile = 1;
+}

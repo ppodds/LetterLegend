@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use crate::player::Player;
+
 use super::lobby::Lobby;
 
 #[derive(Debug)]
@@ -18,9 +20,9 @@ impl Lobbies {
         }
     }
 
-    pub fn create_lobby(&self, max_players: u32) -> Arc<Lobby> {
+    pub fn create_lobby(&self, max_players: u32, leader: Arc<Player>) -> Arc<Lobby> {
         let mut next_lobby_id = self.next_lobby_id.lock().unwrap();
-        let lobby = Arc::new(Lobby::new(*next_lobby_id, max_players));
+        let lobby = Arc::new(Lobby::new(*next_lobby_id, max_players, leader));
         self.lobbies
             .lock()
             .unwrap()
@@ -49,7 +51,7 @@ mod tests {
     #[test]
     fn create_lobby_should_create_lobby() -> Result<(), Box<dyn std::error::Error>> {
         let lobbies = Lobbies::new();
-        lobbies.create_lobby(4);
+        lobbies.create_lobby(4, Arc::new(Player::new(0, "test".to_string())));
         assert!(lobbies.lobbies.lock().unwrap().get(&0).is_some());
         Ok(())
     }
@@ -57,11 +59,14 @@ mod tests {
     #[test]
     fn get_lobby_with_test_lobby_should_return_lobby() -> Result<(), Box<dyn std::error::Error>> {
         let lobbies = Lobbies::new();
-        lobbies
-            .lobbies
-            .lock()
-            .unwrap()
-            .insert(0, Arc::new(Lobby::new(0, 4)));
+        lobbies.lobbies.lock().unwrap().insert(
+            0,
+            Arc::new(Lobby::new(
+                0,
+                4,
+                Arc::new(Player::new(0, "test".to_string())),
+            )),
+        );
         assert!(lobbies.get_lobby(0).is_some());
         Ok(())
     }
@@ -78,11 +83,14 @@ mod tests {
     fn remove_lobby_with_test_lobby_should_remove_lobby() -> Result<(), Box<dyn std::error::Error>>
     {
         let lobbies = Lobbies::new();
-        lobbies
-            .lobbies
-            .lock()
-            .unwrap()
-            .insert(0, Arc::new(Lobby::new(0, 4)));
+        lobbies.lobbies.lock().unwrap().insert(
+            0,
+            Arc::new(Lobby::new(
+                0,
+                4,
+                Arc::new(Player::new(0, "test".to_string())),
+            )),
+        );
         lobbies.remove_lobby(0);
         assert_eq!(lobbies.lobbies.lock().unwrap().len(), 0);
         Ok(())

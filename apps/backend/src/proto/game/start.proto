@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package game.start;
+option csharp_namespace = "Protos.Game";
+
+import "game/board.proto";
+
+message StartResponse {
+    bool success = 1;
+    optional board.Board board = 2;
+}

@@ -9,6 +9,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+defaults:
+  run:
+    working-directory: apps/backend
+
 jobs:
   build:
 
@@ -16,7 +20,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - run: cd apps/backend
     - name: Build
       run: cargo build --verbose
     - name: Run tests

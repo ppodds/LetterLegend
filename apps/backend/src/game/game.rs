@@ -11,7 +11,7 @@ pub type Board = [[Option<Tile>; 26]; 26];
 #[derive(Debug)]
 pub struct Game {
     pub id: u32,
-    pub players: Mutex<HashMap<u32, Arc<Player>>>,
+    players: Mutex<HashMap<u32, Arc<Player>>>,
     board: Arc<Mutex<Board>>,
 }
 
@@ -43,5 +43,14 @@ impl Game {
 
     pub fn remove_player(&self, player: Arc<Player>) -> Option<Arc<Player>> {
         self.players.lock().unwrap().remove(&player.id)
+    }
+
+    pub fn get_players(&self) -> Vec<Arc<Player>> {
+        self.players
+            .lock()
+            .unwrap()
+            .values()
+            .map(|player| player.clone())
+            .collect()
     }
 }

@@ -75,9 +75,11 @@ impl PlayerService {
                 self.player_timeout_queue.lock().unwrap().remove(&player.id);
                 if let Some(lobby) = player.clone().get_lobby() {
                     lobby.remove_player(player.clone());
+                    player.set_lobby(None);
                 };
                 if let Some(game) = player.clone().get_game() {
                     game.remove_player(player.clone());
+                    player.set_game(None);
                 };
                 Ok(player)
             }
@@ -123,6 +125,8 @@ impl PlayerService {
 #[cfg(test)]
 mod tests {
     use std::{error::Error, time::Duration};
+
+    use crate::{game::game::Game, lobby::lobby::Lobby};
 
     use super::*;
 
@@ -188,6 +192,90 @@ mod tests {
         }
 
         assert_eq!(service.kick_timeout_users()?, 2);
+        Ok(())
+    }
+
+    #[test]
+    fn get_players_with_a_player_in_online_player_map_should_return_a_vec_with_that_player(
+    ) -> Result<(), Box<dyn Error>> {
+        let service = PlayerService::new();
+        service
+            .online_player_map
+            .lock()
+            .unwrap()
+            .insert(0, Arc::new(Player::new(0, String::from("test"))));
+        assert_eq!(service.get_players().len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn remove_player_with_a_player_in_lobby_should_remove_player_from_lobby(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let service = PlayerService::new();
+        let player = service.add_player(0, String::from("test"));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        player.set_lobby(Some(lobby.clone()));
+        service.remove_player(player.clone())?;
+        assert_eq!(lobby.get_players().len(), 0);
+        assert!(player.get_lobby().is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn remove_player_with_a_player_in_game_should_remove_player_from_lobby(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let service = PlayerService::new();
+        let player = service.add_player(0, String::from("test"));
+        let game = Arc::new(Game::new(0, vec![player.clone()]));
+        player.set_game(Some(game.clone()));
+        service.remove_player(player.clone())?;
+        assert_eq!(game.get_players().len(), 0);
+        assert!(player.get_game().is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn remove_player_with_a_player_not_existing_should_return_error(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let service = PlayerService::new();
+        assert!(service
+            .remove_player(Arc::new(Player::new(0, String::from("test"))))
+            .is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn heartbeat_with_test_player_should_refresh_timeout(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let service = PlayerService::new();
+        let player = service.add_player(0, String::from("test"));
+        service
+            .player_timeout_queue
+            .lock()
+            .unwrap()
+            .change_priority(
+                &player.id,
+                Reverse(Instant::now() - Duration::from_secs(60)),
+            );
+        service.heartbeat(player.clone())?;
+        let t = service
+            .player_timeout_queue
+            .lock()
+            .unwrap()
+            .get(&player.id)
+            .unwrap()
+            .1
+             .0;
+        assert!(t > Instant::now() - Duration::from_secs(1) && t < Instant::now());
+        Ok(())
+    }
+
+    #[test]
+    fn heartbeat_with_not_exist_player_should_return_error(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let service = PlayerService::new();
+        let player = Arc::new(Player::new(0, String::from("test")));
+        assert!(service.heartbeat(player.clone()).is_err());
         Ok(())
     }
 }

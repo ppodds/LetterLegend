@@ -1,9 +1,8 @@
 #[cfg(not(test))]
 use crate::connection::Connection;
+use crate::{game::game::Game, lobby::lobby::Lobby};
 use core::hash::{Hash, Hasher};
-#[cfg(not(test))]
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 pub struct Player {
@@ -11,8 +10,8 @@ pub struct Player {
     pub name: String,
     #[cfg(not(test))]
     pub connection: Arc<tokio::sync::Mutex<Connection>>,
-    pub lobby_id: Mutex<Option<u32>>,
-    pub game_id: Mutex<Option<u32>>,
+    lobby: Mutex<Option<Arc<Lobby>>>,
+    game: Mutex<Option<Arc<Game>>>,
 }
 
 impl PartialEq for Player {
@@ -40,8 +39,24 @@ impl Player {
             name,
             #[cfg(not(test))]
             connection,
-            lobby_id: Mutex::new(None),
-            game_id: Mutex::new(None),
+            lobby: Mutex::new(None),
+            game: Mutex::new(None),
         }
+    }
+
+    pub fn get_lobby(&self) -> Option<Arc<Lobby>> {
+        self.lobby.lock().unwrap().clone()
+    }
+
+    pub fn set_lobby(&self, lobby: Option<Arc<Lobby>>) {
+        *self.lobby.lock().unwrap() = lobby;
+    }
+
+    pub fn get_game(&self) -> Option<Arc<Game>> {
+        self.game.lock().unwrap().clone()
+    }
+
+    pub fn set_game(&self, game: Option<Arc<Game>>) {
+        *self.game.lock().unwrap() = game;
     }
 }

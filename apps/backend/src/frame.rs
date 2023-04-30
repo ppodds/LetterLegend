@@ -11,6 +11,7 @@ use crate::{
     model::lobby::join::JoinResponse, model::lobby::list::ListResponse,
     model::lobby::quit::QuitResponse, model::lobby::ready::ReadyResponse, operation::Operation,
 };
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
 pub enum Frame {
@@ -19,7 +20,7 @@ pub enum Frame {
     Response(Response),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Request {
     Connect(ConnectRequest),
     Disconnect,
@@ -30,6 +31,22 @@ pub enum Request {
     ListLobby,
     Ready,
     StartGame,
+}
+
+impl Hash for Request {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Request::Connect(_) => 0.hash(state),
+            Request::Disconnect => 1.hash(state),
+            Request::Heartbeat => 2.hash(state),
+            Request::CreateLobby(_) => 3.hash(state),
+            Request::JoinLobby(_) => 4.hash(state),
+            Request::QuitLobby => 5.hash(state),
+            Request::ListLobby => 6.hash(state),
+            Request::Ready => 7.hash(state),
+            Request::StartGame => 8.hash(state),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +60,7 @@ pub enum Response {
     ListLobby(ListResponse),
     Ready(ReadyResponse),
     StartGame(StartResponse),
+    Error(crate::model::error::error::Error),
 }
 
 #[derive(Debug)]
@@ -71,6 +89,8 @@ impl Frame {
             Operation::JoinLobby => JoinRequest::decode(payload).err(),
             Operation::QuitLobby => return Ok(()),
             Operation::ListLobby => return Ok(()),
+            Operation::Ready => return Ok(()),
+            Operation::StartGame => return Ok(()),
         };
         if e.is_some() {
             return Err(Error::ProtobufDecodeFailed(e.unwrap()));
@@ -105,6 +125,8 @@ impl Frame {
             },
             Operation::QuitLobby => Ok(Frame::Request(Request::QuitLobby)),
             Operation::ListLobby => Ok(Frame::Request(Request::ListLobby)),
+            Operation::Ready => Ok(Frame::Request(Request::Ready)),
+            Operation::StartGame => Ok(Frame::Request(Request::StartGame)),
         }
     }
 }

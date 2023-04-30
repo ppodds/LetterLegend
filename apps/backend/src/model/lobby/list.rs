@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
-use crate::lobby::{lobbies::Lobbies, lobby::Lobby};
+use crate::lobby::lobby::Lobby;
 
 include!(concat!(env!("OUT_DIR"), "/lobby.list.rs"));
 
-impl From<Arc<Lobbies>> for LobbyInfos {
-    fn from(lobbies: Arc<Lobbies>) -> Self {
+impl From<Vec<Arc<Lobby>>> for LobbyInfos {
+    fn from(lobbies: Vec<Arc<Lobby>>) -> Self {
         let mut lobby_infos = Vec::new();
-        for lobby in lobbies.get_lobbies() {
-            lobby_infos.push(LobbyInfo::from(lobby.clone()));
+        for lobby in lobbies {
+            lobby_infos.push(LobbyInfo::from(lobby));
         }
         Self { lobby_infos }
     }
@@ -26,7 +26,7 @@ impl From<Arc<Lobby>> for LobbyInfo {
 
 #[cfg(test)]
 mod tests {
-    use crate::player::Player;
+    use crate::{lobby::lobbies::Lobbies, player::Player};
 
     use super::*;
     use std::error::Error;
@@ -59,7 +59,7 @@ mod tests {
     #[test]
     fn from_lobbies_with_lobbies_return_lobby_infos() -> Result<(), Box<dyn Error + Send + Sync>> {
         let lobbies = Arc::new(Lobbies::new());
-        let lobby_infos = LobbyInfos::from(lobbies);
+        let lobby_infos = LobbyInfos::from(lobbies.get_lobbies());
         assert_eq!(lobby_infos.lobby_infos.len(), 0);
         Ok(())
     }
@@ -69,7 +69,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let lobbies = Arc::new(Lobbies::new());
         lobbies.create_lobby(4, Arc::new(Player::new(0, "test".to_string())));
-        let lobby_infos = LobbyInfos::from(lobbies);
+        let lobby_infos = LobbyInfos::from(lobbies.get_lobbies());
         assert_eq!(lobby_infos.lobby_infos[0].id, 0);
         Ok(())
     }

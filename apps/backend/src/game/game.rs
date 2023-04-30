@@ -15,6 +15,12 @@ pub struct Game {
     board: Arc<Mutex<Board>>,
 }
 
+impl PartialEq for Game {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 impl Game {
     pub fn new(id: u32, players: Vec<Arc<Player>>) -> Self {
         let mut map = HashMap::new();
@@ -33,5 +39,9 @@ impl Game {
 
     pub fn get_board(&self) -> Arc<Mutex<Board>> {
         self.board.clone()
+    }
+
+    pub fn remove_player(&self, player: Arc<Player>) -> Option<Arc<Player>> {
+        self.players.lock().unwrap().remove(&player.id)
     }
 }

@@ -1,8 +1,11 @@
 pub mod connection;
+pub mod controller;
 pub mod frame;
 pub mod game;
 pub mod lobby;
 pub mod model;
 pub mod operation;
 pub mod player;
+pub mod router;
 pub mod server;
+pub mod service;

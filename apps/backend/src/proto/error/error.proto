@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package error.error;
+option csharp_namespace = "Protos.Error";
+
+message Error {
+    string message = 1;
+}

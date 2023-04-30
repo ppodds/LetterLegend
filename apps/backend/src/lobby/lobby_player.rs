@@ -10,6 +10,12 @@ pub struct LobbyPlayer {
     pub player: Arc<Player>,
 }
 
+impl PartialEq for LobbyPlayer {
+    fn eq(&self, other: &Self) -> bool {
+        self.player.id == other.player.id
+    }
+}
+
 impl LobbyPlayer {
     pub fn new(player: Arc<Player>) -> Self {
         Self {

@@ -72,7 +72,7 @@ mod tests {
         let lobby_service = Arc::new(lobby_service::LobbyService::new());
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.get_player(player.clone().id).unwrap();
-        *lobby_player.ready.lock().unwrap() = true;
+        lobby_player.set_ready(true);
         let res =
             match controller.handle_request(Request::StartGame, RequestContext { client_id: 0 })? {
                 Response::StartGame(res) => res,

@@ -43,8 +43,7 @@ impl Controller for ReadyController {
             Some(lobby) => match lobby.get_player(player.id) {
                 Some(lobby_player) => {
                     {
-                        let mut ready = lobby_player.ready.lock().unwrap();
-                        *ready = !*ready;
+                        lobby_player.set_ready(!lobby_player.get_ready());
                     }
                     Ok(Response::Ready(ReadyResponse { success: true }))
                 }
@@ -73,7 +72,7 @@ mod tests {
             .add_player(0, String::from("test"));
         let lobby = lobby_service.create_lobby(leader, 4)?;
         controller.handle_request(Request::Ready, RequestContext { client_id: 0 })?;
-        assert!(*lobby.get_player(0).unwrap().ready.lock().unwrap());
+        assert!(lobby.get_player(0).unwrap().get_ready());
         Ok(())
     }
 
@@ -86,9 +85,9 @@ mod tests {
             .player_service
             .add_player(0, String::from("test"));
         let lobby = lobby_service.create_lobby(leader, 4)?;
-        *lobby.get_player(0).unwrap().ready.lock().unwrap() = true;
+        lobby.get_player(0).unwrap().set_ready(true);
         controller.handle_request(Request::Ready, RequestContext { client_id: 0 })?;
-        assert!(!*lobby.get_player(0).unwrap().ready.lock().unwrap());
+        assert!(!lobby.get_player(0).unwrap().get_ready());
         Ok(())
     }
 }

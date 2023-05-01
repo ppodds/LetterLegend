@@ -136,4 +136,26 @@ mod tests {
         assert!(game_service.get_game(0).is_some());
         Ok(())
     }
+
+    #[test]
+    fn remove_game_with_test_game_should_be_remove() -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new();
+        let game = Arc::new(Game::new(0, Vec::new()));
+        game_service.games.lock().unwrap().insert(0, game.clone());
+        game_service.remove_game(game)?;
+        assert!(game_service.games.lock().unwrap().is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn remove_game_with_test_player_and_with_test_game_test_player_game_should_be_none(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new();
+        let player = Arc::new(Player::new(0, "test".to_string()));
+        let game = Arc::new(Game::new(0, vec![player.clone()]));
+        game_service.games.lock().unwrap().insert(0, game.clone());
+        game_service.remove_game(game)?;
+        assert!(player.get_game().is_none());
+        Ok(())
+    }
 }

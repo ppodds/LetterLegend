@@ -1,64 +1,103 @@
-use std::{error::Error, sync::Arc};
-
-use crate::{
-    game::{game::Game, games::Games},
-    player::Player,
+use std::{
+    collections::HashMap,
+    error::Error,
+    sync::{Arc, Mutex},
 };
 
-#[derive(Debug, Clone)]
+use crate::{game::game::Game, lobby::lobby::Lobby, player::Player};
+
+#[cfg(not(test))]
+use crate::frame::Response;
+#[cfg(not(test))]
+use crate::model::lobby::broadcast::{LobbyBroadcast, LobbyEvent};
+
+#[derive(Debug)]
 pub struct GameService {
-    games: Arc<Games>,
+    next_game_id: Mutex<u32>,
+    games: Mutex<HashMap<u32, Arc<Game>>>,
 }
 
 impl GameService {
     pub fn new() -> Self {
         Self {
-            games: Arc::new(Games::new()),
+            next_game_id: Mutex::new(0),
+            games: Mutex::new(HashMap::new()),
         }
     }
 
     pub fn start_game(
         &self,
         player: Arc<Player>,
+        lobby: Arc<Lobby>,
     ) -> Result<Arc<Game>, Box<dyn Error + Send + Sync>> {
-        let lobby = match player.get_lobby() {
-            Some(lobby) => lobby,
-            None => return Err("Player not in lobby".into()),
-        };
-
         if player != lobby.leader {
             return Err("Only leader can start game".into());
         }
-
-        Ok(self.games.create_game(
-            lobby
-                .get_players()
-                .iter()
-                .map(|x| x.player.clone())
-                .collect(),
-        ))
+        let game = {
+            let mut next_id = self.next_game_id.lock().unwrap();
+            let game = Arc::new(Game::new(
+                *next_id,
+                lobby
+                    .get_players()
+                    .iter()
+                    .map(|x| x.player.clone())
+                    .collect(),
+            ));
+            self.games.lock().unwrap().insert(*next_id, game.clone());
+            *next_id += 1;
+            game
+        };
+        for player in game.get_players() {
+            player.set_game(Some(game.clone()));
+            #[cfg(not(test))]
+            tokio::spawn(async move {
+                if let Err(e) = player
+                    .send_message(Response::LobbyBroadcast(LobbyBroadcast {
+                        event: LobbyEvent::Start as i32,
+                        lobby: None,
+                    }))
+                    .await
+                {
+                    eprintln!("Error sending lobby broadcast: {}", e);
+                }
+            });
+        }
+        Ok(game)
     }
 
     pub fn get_game(&self, id: u32) -> Option<Arc<Game>> {
-        self.games.get_game(id)
+        self.games.lock().unwrap().get(&id).cloned()
+    }
+
+    pub fn remove_game(&self, game: Arc<Game>) -> Result<Arc<Game>, Box<dyn Error + Send + Sync>> {
+        match self.games.lock().unwrap().remove(&game.id) {
+            Some(game) => {
+                for player in game.get_players() {
+                    player.set_game(None);
+                }
+                Ok(game)
+            }
+            None => Err("Game not found".into()),
+        }
+    }
+
+    pub fn get_gamees(&self) -> Vec<Arc<Game>> {
+        self.games.lock().unwrap().values().cloned().collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::service::lobby_service::LobbyService;
-
     use super::*;
 
     #[test]
     fn start_game_with_test_player_in_test_lobby_should_start_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new();
-        let lobby_service = LobbyService::new();
         let leader = Arc::new(Player::new(0, "test".to_string()));
-        let lobby = lobby_service.create_lobby(leader.clone(), 4)?;
-        lobby.get_player(leader.id).unwrap().set_ready(true);
-        assert!(game_service.start_game(leader.clone()).is_ok());
+        assert!(game_service
+            .start_game(leader.clone(), Arc::new(Lobby::new(0, 4, leader.clone())))
+            .is_ok());
         Ok(())
     }
 
@@ -66,8 +105,10 @@ mod tests {
     fn start_game_with_test_player_not_in_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new();
+        let leader = Arc::new(Player::new(0, "test1".to_string()));
+        let player = Arc::new(Player::new(1, "test2".to_string()));
         assert!(game_service
-            .start_game(Arc::new(Player::new(1, "test2".to_string())))
+            .start_game(player, Arc::new(Lobby::new(0, 4, leader)))
             .is_err());
         Ok(())
     }
@@ -76,23 +117,22 @@ mod tests {
     fn start_game_with_not_leader_should_return_error() -> Result<(), Box<dyn Error + Send + Sync>>
     {
         let game_service = GameService::new();
-        let lobby_service = LobbyService::new();
         let leader = Arc::new(Player::new(0, "test".to_string()));
-        let lobby = lobby_service.create_lobby(leader.clone(), 4)?;
+        let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
         let player = Arc::new(Player::new(1, "test2".to_string()));
-        lobby_service.add_player_to_lobby(player.clone(), lobby)?;
-        assert!(game_service.start_game(player).is_err());
+        lobby.add_player(player.clone())?;
+        assert!(game_service.start_game(player, lobby).is_err());
         Ok(())
     }
 
     #[test]
     fn get_game_with_game_id_should_return_game() -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new();
-        let lobby_service = LobbyService::new();
-        let leader = Arc::new(Player::new(0, "test".to_string()));
-        let lobby = lobby_service.create_lobby(leader.clone(), 4)?;
-        lobby.get_player(leader.id).unwrap().set_ready(true);
-        game_service.start_game(leader.clone())?;
+        game_service
+            .games
+            .lock()
+            .unwrap()
+            .insert(0, Arc::new(Game::new(0, Vec::new())));
         assert!(game_service.get_game(0).is_some());
         Ok(())
     }

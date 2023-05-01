@@ -43,7 +43,11 @@ impl Controller for StartController {
             Some(player) => player,
             None => return Err("Player not found".into()),
         };
-        let game = self.game_service.start_game(player)?;
+        let lobby = match player.get_lobby() {
+            Some(lobby) => lobby,
+            None => return Err("Player not in lobby".into()),
+        };
+        let game = self.game_service.start_game(player, lobby)?;
         Ok(Response::StartGame(StartResponse {
             success: true,
             board: Some(crate::model::game::board::Board::from(

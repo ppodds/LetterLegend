@@ -5,11 +5,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use super::lobby_player::LobbyPlayer;
 
-#[cfg(not(test))]
-use crate::frame::Response;
-#[cfg(not(test))]
-use crate::model::lobby::broadcast::{LobbyBroadcast, LobbyEvent};
-
 #[derive(Debug, Clone)]
 pub struct Lobby {
     id: u32,
@@ -43,35 +38,15 @@ impl Lobby {
         &self,
         player: Arc<Player>,
     ) -> Result<Arc<LobbyPlayer>, Box<dyn Error + Send + Sync>> {
-        if player.get_lobby().is_some() {
-            return Err("player already in a lobby".into());
+        if self.players.lock().unwrap().contains_key(&player.id) {
+            return Err("Player already in lobby".into());
         }
+
         let lobby_player = Arc::new(LobbyPlayer::new(player.clone()));
         self.players
             .lock()
             .unwrap()
             .insert(player.id, lobby_player.clone());
-        #[cfg(not(test))]
-        {
-            for lobby_player in self.get_players() {
-                if lobby_player.player == player {
-                    continue;
-                }
-                let lobby = self.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = lobby_player
-                        .player
-                        .send_message(Response::LobbyBroadcast(LobbyBroadcast {
-                            event: LobbyEvent::Join as i32,
-                            lobby: Some(crate::model::lobby::lobby::Lobby::from(&lobby)),
-                        }))
-                        .await
-                    {
-                        eprintln!("Error sending lobby broadcast: {}", e);
-                    }
-                });
-            }
-        }
         Ok(lobby_player)
     }
 
@@ -87,31 +62,10 @@ impl Lobby {
         &self,
         player: Arc<Player>,
     ) -> Result<Arc<LobbyPlayer>, Box<dyn Error + Send + Sync>> {
-        if player.get_lobby().is_none() || player.get_lobby().unwrap().id != self.id {
+        if !self.players.lock().unwrap().contains_key(&player.id) {
             return Err("Player is not in the lobby".into());
         }
-
-        let lobby_player = self.players.lock().unwrap().remove(&player.id).unwrap();
-
-        #[cfg(not(test))]
-        {
-            for lobby_player in self.get_players() {
-                let lobby = self.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = lobby_player
-                        .player
-                        .send_message(Response::LobbyBroadcast(LobbyBroadcast {
-                            event: LobbyEvent::Leave as i32,
-                            lobby: Some(crate::model::lobby::lobby::Lobby::from(&lobby)),
-                        }))
-                        .await
-                    {
-                        eprintln!("Error sending lobby broadcast: {}", e);
-                    }
-                });
-            }
-        }
-        Ok(lobby_player)
+        Ok(self.players.lock().unwrap().remove(&player.id).unwrap())
     }
 
     pub fn get_id(&self) -> u32 {
@@ -154,13 +108,8 @@ mod tests {
     #[test]
     fn add_player_with_test_player_already_in_lobby_should_return_error(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let lobby = Arc::new(Lobby::new(
-            0,
-            4,
-            Arc::new(Player::new(0, "test1".to_string())),
-        ));
-        let player = Arc::new(Player::new(1, "test2".to_string()));
-        player.set_lobby(Some(lobby.clone()));
+        let player = Arc::new(Player::new(0, "test1".to_string()));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
         assert!(lobby.add_player(player).is_err());
         Ok(())
     }
@@ -218,7 +167,6 @@ mod tests {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let player = Arc::new(Player::new(0, "test".to_string()));
         let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
-        player.clone().set_lobby(Some(lobby.clone()));
         lobby.remove_player(player)?;
         assert_eq!(lobby.players.lock().unwrap().len(), 0);
         Ok(())

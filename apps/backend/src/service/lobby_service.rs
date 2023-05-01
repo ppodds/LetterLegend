@@ -1,19 +1,30 @@
-use std::{error::Error, sync::Arc};
+use std::{
+    collections::HashMap,
+    error::Error,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
-    lobby::{lobbies::Lobbies, lobby::Lobby, lobby_player::LobbyPlayer},
+    lobby::{lobby::Lobby, lobby_player::LobbyPlayer},
     player::Player,
 };
 
-#[derive(Debug, Clone)]
+#[cfg(not(test))]
+use crate::frame::Response;
+#[cfg(not(test))]
+use crate::model::lobby::broadcast::{LobbyBroadcast, LobbyEvent};
+
+#[derive(Debug)]
 pub struct LobbyService {
-    lobbies: Arc<Lobbies>,
+    next_lobby_id: Mutex<u32>,
+    lobbies: Mutex<HashMap<u32, Arc<Lobby>>>,
 }
 
 impl LobbyService {
     pub fn new() -> Self {
         Self {
-            lobbies: Arc::new(Lobbies::new()),
+            next_lobby_id: Mutex::new(0),
+            lobbies: Mutex::new(HashMap::new()),
         }
     }
 
@@ -25,7 +36,13 @@ impl LobbyService {
         if max_players < 4 || max_players > 8 {
             return Err("Invalid max players".into());
         }
-        let lobby = self.lobbies.create_lobby(max_players, leader.clone());
+        let mut next_lobby_id = self.next_lobby_id.lock().unwrap();
+        let lobby = Arc::new(Lobby::new(*next_lobby_id, max_players, leader.clone()));
+        self.lobbies
+            .lock()
+            .unwrap()
+            .insert(*next_lobby_id, lobby.clone());
+        *next_lobby_id += 1;
         leader.set_lobby(Some(lobby.clone()));
         Ok(lobby)
     }
@@ -35,30 +52,83 @@ impl LobbyService {
         player: Arc<Player>,
         lobby: Arc<Lobby>,
     ) -> Result<Arc<LobbyPlayer>, Box<dyn Error + Send + Sync>> {
+        if player.get_lobby().is_some() {
+            return Err("player already in a lobby".into());
+        }
         let lobby_player = lobby.add_player(player.clone())?;
+        #[cfg(not(test))]
+        {
+            for lobby_player in lobby.get_players() {
+                if lobby_player.player == player {
+                    continue;
+                }
+                let lobby = lobby.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = lobby_player
+                        .player
+                        .send_message(Response::LobbyBroadcast(LobbyBroadcast {
+                            event: LobbyEvent::Join as i32,
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby.clone())),
+                        }))
+                        .await
+                    {
+                        eprintln!("Error sending lobby broadcast: {}", e);
+                    }
+                });
+            }
+        }
         player.set_lobby(Some(lobby));
         Ok(lobby_player)
     }
 
     pub fn get_lobbies(&self) -> Vec<Arc<Lobby>> {
-        self.lobbies.get_lobbies()
+        self.lobbies.lock().unwrap().values().cloned().collect()
     }
 
     pub fn get_lobby(&self, id: u32) -> Option<Arc<Lobby>> {
-        self.lobbies.get_lobby(id)
+        Some(self.lobbies.lock().unwrap().get(&id)?.clone())
     }
 
     pub fn remove_player_from_lobby(
         &self,
         player: Arc<Player>,
     ) -> Result<Arc<LobbyPlayer>, Box<dyn Error + Send + Sync>> {
-        let lobby_player = match player.clone().get_lobby() {
+        let lobby = match player.clone().get_lobby() {
             Some(lobby) => lobby,
             None => return Err("Player is not in a lobby".into()),
+        };
+        let lobby_player = lobby.remove_player(player.clone())?;
+        #[cfg(not(test))]
+        {
+            for lobby_player in lobby.get_players() {
+                let lobby = lobby.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = lobby_player
+                        .player
+                        .send_message(Response::LobbyBroadcast(LobbyBroadcast {
+                            event: LobbyEvent::Leave as i32,
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby)),
+                        }))
+                        .await
+                    {
+                        eprintln!("Error sending lobby broadcast: {}", e);
+                    }
+                });
+            }
         }
-        .remove_player(player.clone())?;
         player.set_lobby(None);
         Ok(lobby_player)
+    }
+
+    pub fn remove_lobby(
+        &self,
+        lobby: Arc<Lobby>,
+    ) -> Result<Arc<Lobby>, Box<dyn Error + Send + Sync>> {
+        let mut lobbies = self.lobbies.lock().unwrap();
+        if !lobbies.contains_key(&lobby.get_id()) {
+            return Err("Lobby does not exist".into());
+        }
+        Ok(lobbies.remove(&lobby.get_id()).unwrap())
     }
 }
 
@@ -71,7 +141,7 @@ mod tests {
     {
         let service = LobbyService::new();
         service.create_lobby(Arc::new(Player::new(0, String::from("test"))), 4)?;
-        assert!(service.lobbies.get_lobby(0).is_some());
+        assert!(service.lobbies.lock().unwrap().get(&0).is_some());
         Ok(())
     }
 
@@ -93,7 +163,9 @@ mod tests {
         service.create_lobby(leader, 4)?;
         assert!(service
             .lobbies
-            .get_lobby(0)
+            .lock()
+            .unwrap()
+            .get(&0)
             .unwrap()
             .get_player(0)
             .is_some());
@@ -105,11 +177,14 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
-        let lobby = service.lobbies.create_lobby(4, leader.clone());
+        let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
+        service.lobbies.lock().unwrap().insert(0, lobby.clone());
         service.add_player_to_lobby(Arc::new(Player::new(1, String::from("test2"))), lobby)?;
         assert!(service
             .lobbies
-            .get_lobby(0)
+            .lock()
+            .unwrap()
+            .get(&0)
             .unwrap()
             .get_player(1)
             .is_some());
@@ -121,7 +196,8 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
-        let lobby = service.lobbies.create_lobby(4, leader.clone());
+        let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
+        service.lobbies.lock().unwrap().insert(0, lobby.clone());
         let player = Arc::new(Player::new(1, String::from("test2")));
         service.add_player_to_lobby(player.clone(), lobby.clone())?;
         assert_eq!(player.get_lobby().unwrap(), lobby);
@@ -137,7 +213,9 @@ mod tests {
         service.remove_player_from_lobby(leader)?;
         assert!(service
             .lobbies
-            .get_lobby(0)
+            .lock()
+            .unwrap()
+            .get(&0)
             .unwrap()
             .get_player(0)
             .is_none());
@@ -148,11 +226,31 @@ mod tests {
     fn get_lobbies_with_test_looby_should_return_test_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
-        service
-            .lobbies
-            .create_lobby(4, Arc::new(Player::new(0, String::from("test"))));
+        service.lobbies.lock().unwrap().insert(
+            0,
+            Arc::new(Lobby::new(
+                0,
+                4,
+                Arc::new(Player::new(0, String::from("test"))),
+            )),
+        );
         let lobbies = service.get_lobbies();
         assert_eq!(lobbies.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn remove_lobby_with_test_lobby_should_remove_lobby() -> Result<(), Box<dyn Error + Send + Sync>>
+    {
+        let service = LobbyService::new();
+        let lobby = Arc::new(Lobby::new(
+            0,
+            4,
+            Arc::new(Player::new(0, String::from("test"))),
+        ));
+        service.lobbies.lock().unwrap().insert(0, lobby.clone());
+        service.remove_lobby(lobby)?;
+        assert_eq!(service.lobbies.lock().unwrap().len(), 0);
         Ok(())
     }
 }

@@ -26,10 +26,10 @@ impl From<Arc<Lobby>> for LobbyInfo {
 
 #[cfg(test)]
 mod tests {
-    use crate::{lobby::lobbies::Lobbies, player::Player};
+    use crate::player::Player;
 
     use super::*;
-    use std::error::Error;
+    use std::{error::Error, vec};
 
     #[test]
     fn from_lobby_with_lobby_return_lobby_info() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -50,7 +50,6 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let player = Arc::new(Player::new(0, String::from("test")));
         let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
-        lobby.add_player(player.clone())?;
         let lobby_info = LobbyInfo::from(lobby);
         assert_eq!(lobby_info.current_players, 1);
         Ok(())
@@ -58,8 +57,8 @@ mod tests {
 
     #[test]
     fn from_lobbies_with_lobbies_return_lobby_infos() -> Result<(), Box<dyn Error + Send + Sync>> {
-        let lobbies = Arc::new(Lobbies::new());
-        let lobby_infos = LobbyInfos::from(lobbies.get_lobbies());
+        let lobbies = Vec::new();
+        let lobby_infos = LobbyInfos::from(lobbies);
         assert_eq!(lobby_infos.lobby_infos.len(), 0);
         Ok(())
     }
@@ -67,9 +66,12 @@ mod tests {
     #[test]
     fn from_lobbies_with_lobbies_has_one_lobby_return_lobby_infos(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let lobbies = Arc::new(Lobbies::new());
-        lobbies.create_lobby(4, Arc::new(Player::new(0, "test".to_string())));
-        let lobby_infos = LobbyInfos::from(lobbies.get_lobbies());
+        let lobbies = vec![Arc::new(Lobby::new(
+            0,
+            4,
+            Arc::new(Player::new(0, "test".to_string())),
+        ))];
+        let lobby_infos = LobbyInfos::from(lobbies);
         assert_eq!(lobby_infos.lobby_infos[0].id, 0);
         Ok(())
     }

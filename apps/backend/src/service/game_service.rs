@@ -158,4 +158,19 @@ mod tests {
         assert!(player.get_game().is_none());
         Ok(())
     }
+
+    #[test]
+    fn get_games_with_test_games_should_return_test_games(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new();
+        let game1 = Arc::new(Game::new(0, Vec::new()));
+        let game2 = Arc::new(Game::new(1, Vec::new()));
+        game_service.games.lock().unwrap().insert(0, game1.clone());
+        game_service.games.lock().unwrap().insert(1, game2.clone());
+        let games = game_service.get_gamees();
+        assert!(games.contains(&game1));
+        assert!(games.contains(&game2));
+        assert!(games.len() == 2);
+        Ok(())
+    }
 }

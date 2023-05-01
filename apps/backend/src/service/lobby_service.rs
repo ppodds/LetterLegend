@@ -48,19 +48,17 @@ impl LobbyService {
         self.lobbies.get_lobby(id)
     }
 
-    pub fn remove_player_from_lobby(&self, player: Arc<Player>) -> Option<Arc<LobbyPlayer>> {
-        match match player.get_lobby() {
+    pub fn remove_player_from_lobby(
+        &self,
+        player: Arc<Player>,
+    ) -> Result<Arc<LobbyPlayer>, Box<dyn Error + Send + Sync>> {
+        let lobby_player = match player.clone().get_lobby() {
             Some(lobby) => lobby,
-            None => return None,
+            None => return Err("Player is not in a lobby".into()),
         }
-        .remove_player(player)
-        {
-            Some(player) => {
-                player.player.set_lobby(None);
-                Some(player)
-            }
-            None => None,
-        }
+        .remove_player(player.clone())?;
+        player.set_lobby(None);
+        Ok(lobby_player)
     }
 }
 
@@ -136,7 +134,7 @@ mod tests {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
         service.create_lobby(leader.clone(), 4)?;
-        service.remove_player_from_lobby(leader);
+        service.remove_player_from_lobby(leader)?;
         assert!(service
             .lobbies
             .get_lobby(0)

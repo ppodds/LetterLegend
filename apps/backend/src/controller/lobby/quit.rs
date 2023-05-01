@@ -41,9 +41,7 @@ impl Controller for QuitController {
             Some(player) => player,
             None => return Err("Player not found".into()),
         };
-        match self.lobby_service.remove_player_from_lobby(player) {
-            Some(_) => Ok(Response::QuitLobby(QuitResponse { success: true })),
-            None => Err("Player not in lobby".into()),
-        }
+        self.lobby_service.remove_player_from_lobby(player)?;
+        Ok(Response::QuitLobby(QuitResponse { success: true }))
     }
 }

@@ -5,11 +5,16 @@ use std::{collections::HashMap, sync::Arc};
 
 use super::lobby_player::LobbyPlayer;
 
-#[derive(Debug)]
+#[cfg(not(test))]
+use crate::frame::Response;
+#[cfg(not(test))]
+use crate::model::lobby::broadcast::{LobbyBroadcast, LobbyEvent};
+
+#[derive(Debug, Clone)]
 pub struct Lobby {
     id: u32,
     max_players: u32,
-    players: Mutex<HashMap<u32, Arc<LobbyPlayer>>>,
+    players: Arc<Mutex<HashMap<u32, Arc<LobbyPlayer>>>>,
     pub leader: Arc<Player>,
 }
 
@@ -26,10 +31,10 @@ impl Lobby {
         Self {
             id,
             max_players,
-            players: Mutex::new(HashMap::from([(
+            players: Arc::new(Mutex::new(HashMap::from([(
                 leader.id,
                 Arc::new(LobbyPlayer::new(leader.clone())),
-            )])),
+            )]))),
             leader,
         }
     }
@@ -46,6 +51,27 @@ impl Lobby {
             .lock()
             .unwrap()
             .insert(player.id, lobby_player.clone());
+        #[cfg(not(test))]
+        {
+            for lobby_player in self.get_players() {
+                if lobby_player.player == player {
+                    continue;
+                }
+                let lobby = self.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = lobby_player
+                        .player
+                        .send_message(Response::LobbyBroadcast(LobbyBroadcast {
+                            event: LobbyEvent::Join as i32,
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from(&lobby)),
+                        }))
+                        .await
+                    {
+                        eprintln!("Error sending lobby broadcast: {}", e);
+                    }
+                });
+            }
+        }
         Ok(lobby_player)
     }
 
@@ -57,8 +83,35 @@ impl Lobby {
         self.players.lock().unwrap().values().cloned().collect()
     }
 
-    pub fn remove_player(&self, player: Arc<Player>) -> Option<Arc<LobbyPlayer>> {
-        self.players.lock().unwrap().remove(&player.id)
+    pub fn remove_player(
+        &self,
+        player: Arc<Player>,
+    ) -> Result<Arc<LobbyPlayer>, Box<dyn Error + Send + Sync>> {
+        if player.get_lobby().is_none() || player.get_lobby().unwrap().id != self.id {
+            return Err("Player is not in the lobby".into());
+        }
+
+        let lobby_player = self.players.lock().unwrap().remove(&player.id).unwrap();
+
+        #[cfg(not(test))]
+        {
+            for lobby_player in self.get_players() {
+                let lobby = self.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = lobby_player
+                        .player
+                        .send_message(Response::LobbyBroadcast(LobbyBroadcast {
+                            event: LobbyEvent::Leave as i32,
+                            lobby: Some(crate::model::lobby::lobby::Lobby::from(&lobby)),
+                        }))
+                        .await
+                    {
+                        eprintln!("Error sending lobby broadcast: {}", e);
+                    }
+                });
+            }
+        }
+        Ok(lobby_player)
     }
 
     pub fn get_id(&self) -> u32 {
@@ -162,20 +215,12 @@ mod tests {
 
     #[test]
     fn remove_player_with_test_player_should_remove_player(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let player = Arc::new(Player::new(0, "test".to_string()));
-        let lobby = Lobby::new(0, 4, player.clone());
-        lobby.players.lock().unwrap().insert(
-            0,
-            Arc::new(LobbyPlayer::new(Arc::new(Player::new(
-                0,
-                format!("test{}", 0),
-            )))),
-        );
-
-        let player = lobby.remove_player(player);
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        player.clone().set_lobby(Some(lobby.clone()));
+        lobby.remove_player(player)?;
         assert_eq!(lobby.players.lock().unwrap().len(), 0);
-        assert!(player.unwrap().player.get_lobby().is_none());
         Ok(())
     }
 }

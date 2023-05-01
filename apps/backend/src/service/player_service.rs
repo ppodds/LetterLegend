@@ -1,4 +1,7 @@
+#[cfg(not(test))]
+use crate::frame::Frame;
 use crate::player::Player;
+use priority_queue::PriorityQueue;
 use std::{
     cmp::Reverse,
     collections::HashMap,
@@ -6,10 +9,8 @@ use std::{
     sync::{Arc, Mutex},
     time::Instant,
 };
-
 #[cfg(not(test))]
-use crate::connection::Connection;
-use priority_queue::PriorityQueue;
+use tokio::sync::mpsc::Sender;
 
 type ClientMap = Arc<Mutex<HashMap<u32, Arc<Player>>>>;
 
@@ -38,13 +39,13 @@ impl PlayerService {
         &self,
         client_id: u32,
         name: String,
-        #[cfg(not(test))] connection: Arc<tokio::sync::Mutex<Connection>>,
+        #[cfg(not(test))] sender: Sender<Frame>,
     ) -> Arc<Player> {
         let player = Arc::new(Player::new(
             client_id,
             name,
             #[cfg(not(test))]
-            connection,
+            sender,
         ));
         self.online_player_map
             .lock()
@@ -74,7 +75,7 @@ impl PlayerService {
             Some(player) => {
                 self.player_timeout_queue.lock().unwrap().remove(&player.id);
                 if let Some(lobby) = player.clone().get_lobby() {
-                    lobby.remove_player(player.clone());
+                    lobby.remove_player(player.clone())?;
                     player.set_lobby(None);
                 };
                 if let Some(game) = player.clone().get_game() {

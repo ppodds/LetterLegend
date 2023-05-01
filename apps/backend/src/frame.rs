@@ -6,16 +6,16 @@ use prost::Message;
 use crate::{
     model::control::connect::ConnectRequest, model::control::connect::ConnectResponse,
     model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
-    model::game::start::StartResponse, model::lobby::create::CreateRequest,
-    model::lobby::create::CreateResponse, model::lobby::join::JoinRequest,
-    model::lobby::join::JoinResponse, model::lobby::list::ListResponse,
-    model::lobby::quit::QuitResponse, model::lobby::ready::ReadyResponse, operation::Operation,
+    model::game::start::StartResponse, model::lobby::broadcast::LobbyBroadcast,
+    model::lobby::create::CreateRequest, model::lobby::create::CreateResponse,
+    model::lobby::join::JoinRequest, model::lobby::join::JoinResponse,
+    model::lobby::list::ListResponse, model::lobby::quit::QuitResponse,
+    model::lobby::ready::ReadyResponse, operation::Operation,
 };
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
 pub enum Frame {
-    Error(String),
     Request(Request),
     Response(Response),
 }
@@ -60,6 +60,7 @@ pub enum Response {
     ListLobby(ListResponse),
     Ready(ReadyResponse),
     StartGame(StartResponse),
+    LobbyBroadcast(LobbyBroadcast),
     Error(crate::model::error::error::Error),
 }
 

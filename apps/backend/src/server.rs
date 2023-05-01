@@ -60,7 +60,6 @@ impl Server {
         loop {
             let (socket, _) = listener.accept().await?;
             let (tx, mut rx): (Sender<Frame>, Receiver<Frame>) = channel(128);
-
             let client_id = next_client_id;
             next_client_id += 1;
 
@@ -88,7 +87,7 @@ impl Server {
                                 RequestContext {
                                     client_id,
                                     #[cfg(not(test))]
-                                    connection: connection.clone(),
+                                    sender: tx.clone(),
                                 },
                             ) {
                                 Ok(res) => {

@@ -7,9 +7,9 @@ use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 
 #[cfg(not(test))]
-use crate::connection::Connection;
+use crate::frame::Frame;
 #[cfg(not(test))]
-use tokio::sync::Mutex;
+use tokio::sync::mpsc::Sender;
 
 #[derive(Debug)]
 pub struct Router {
@@ -20,7 +20,7 @@ pub struct Router {
 pub struct RequestContext {
     pub client_id: u32,
     #[cfg(not(test))]
-    pub connection: Arc<Mutex<Connection>>,
+    pub sender: Sender<Frame>,
 }
 
 impl Router {

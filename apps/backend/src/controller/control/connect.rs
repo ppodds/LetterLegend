@@ -39,7 +39,7 @@ impl Controller for ConnectController {
                 context.client_id,
                 req.name,
                 #[cfg(not(test))]
-                context.connection,
+                context.sender,
             ),
         };
 

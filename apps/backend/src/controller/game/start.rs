@@ -51,7 +51,7 @@ impl Controller for StartController {
         Ok(Response::StartGame(StartResponse {
             success: true,
             board: Some(crate::model::game::board::Board::from(
-                game.get_board().lock().unwrap().clone(),
+                &*game.get_board().lock().unwrap(),
             )),
         }))
     }

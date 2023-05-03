@@ -2,10 +2,10 @@ use super::tile::Tile;
 
 include!(concat!(env!("OUT_DIR"), "/game.board.rs"));
 
-impl From<crate::game::game::Board> for Board {
-    fn from(board: crate::game::game::Board) -> Self {
+impl From<&crate::game::board::Board> for Board {
+    fn from(board: &crate::game::board::Board) -> Self {
         let mut rows = Vec::new();
-        for row in board {
+        for row in &board.tiles {
             let mut cols = Vec::new();
             for col in row {
                 cols.push(Column {
@@ -32,27 +32,25 @@ mod tests {
 
     #[test]
     fn from_board_return_board() {
-        const INIT: Option<crate::game::tile::Tile> = None;
-        const T: [Option<crate::game::tile::Tile>; 26] = [INIT; 26];
-        let mut board = [T; 26];
+        let mut board = crate::game::board::Board::new();
         let player = Arc::new(Player::new(0, String::from("test")));
-        board[0][0] = Some(crate::game::tile::Tile::new(
+        board.tiles[0][0] = Some(crate::game::tile::Tile::new(
             String::from("a"),
             player.clone(),
         ));
-        board[0][25] = Some(crate::game::tile::Tile::new(
+        board.tiles[0][25] = Some(crate::game::tile::Tile::new(
             String::from("b"),
             player.clone(),
         ));
-        board[25][0] = Some(crate::game::tile::Tile::new(
+        board.tiles[25][0] = Some(crate::game::tile::Tile::new(
             String::from("c"),
             player.clone(),
         ));
-        board[25][25] = Some(crate::game::tile::Tile::new(
+        board.tiles[25][25] = Some(crate::game::tile::Tile::new(
             String::from("d"),
             player.clone(),
         ));
-        let board = Board::from(board);
+        let board = Board::from(&board);
         assert_eq!(
             board.rows[0].columns[0].tile.clone().unwrap().char,
             String::from("a")

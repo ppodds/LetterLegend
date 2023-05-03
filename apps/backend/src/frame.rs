@@ -6,11 +6,13 @@ use prost::Message;
 use crate::{
     model::control::connect::ConnectRequest, model::control::connect::ConnectResponse,
     model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
-    model::game::start::StartResponse, model::lobby::broadcast::LobbyBroadcast,
-    model::lobby::create::CreateRequest, model::lobby::create::CreateResponse,
-    model::lobby::join::JoinRequest, model::lobby::join::JoinResponse,
-    model::lobby::list::ListResponse, model::lobby::quit::QuitResponse,
-    model::lobby::ready::ReadyResponse, operation::Operation,
+    model::game::broadcast::GameBroadcast, model::game::finish_turn::FinishTurnResponse,
+    model::game::get_new_card::GetNewCardResponse, model::game::set_tile::SetTileRequest,
+    model::game::set_tile::SetTileResponse, model::game::start::StartResponse,
+    model::lobby::broadcast::LobbyBroadcast, model::lobby::create::CreateRequest,
+    model::lobby::create::CreateResponse, model::lobby::join::JoinRequest,
+    model::lobby::join::JoinResponse, model::lobby::list::ListResponse,
+    model::lobby::quit::QuitResponse, model::lobby::ready::ReadyResponse, operation::Operation,
 };
 use std::hash::{Hash, Hasher};
 
@@ -31,6 +33,9 @@ pub enum Request {
     ListLobby,
     Ready,
     StartGame,
+    SetTile(SetTileRequest),
+    FinishTurn,
+    GetNewCard,
 }
 
 impl Hash for Request {
@@ -45,12 +50,16 @@ impl Hash for Request {
             Request::ListLobby => 6.hash(state),
             Request::Ready => 7.hash(state),
             Request::StartGame => 8.hash(state),
+            Request::SetTile(_) => 9.hash(state),
+            Request::FinishTurn => 10.hash(state),
+            Request::GetNewCard => 11.hash(state),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum Response {
+    Error(crate::model::error::error::Error),
     Connect(ConnectResponse),
     Disconnect(DisconnectResponse),
     Heartbeat(HeartbeatResponse),
@@ -61,7 +70,10 @@ pub enum Response {
     Ready(ReadyResponse),
     StartGame(StartResponse),
     LobbyBroadcast(LobbyBroadcast),
-    Error(crate::model::error::error::Error),
+    SetTile(SetTileResponse),
+    FinishTurn(FinishTurnResponse),
+    GetNewCard(GetNewCardResponse),
+    GameBroadcast(GameBroadcast),
 }
 
 #[derive(Debug)]
@@ -92,6 +104,9 @@ impl Frame {
             Operation::ListLobby => return Ok(()),
             Operation::Ready => return Ok(()),
             Operation::StartGame => return Ok(()),
+            Operation::SetTile => SetTileRequest::decode(payload).err(),
+            Operation::FinishTurn => return Ok(()),
+            Operation::GetNewCard => return Ok(()),
         };
         if e.is_some() {
             return Err(Error::ProtobufDecodeFailed(e.unwrap()));
@@ -128,6 +143,12 @@ impl Frame {
             Operation::ListLobby => Ok(Frame::Request(Request::ListLobby)),
             Operation::Ready => Ok(Frame::Request(Request::Ready)),
             Operation::StartGame => Ok(Frame::Request(Request::StartGame)),
+            Operation::SetTile => match SetTileRequest::decode(payload) {
+                Ok(req) => Ok(Frame::Request(Request::SetTile(req))),
+                Err(e) => Err(Error::ProtobufDecodeFailed(e)),
+            },
+            Operation::FinishTurn => Ok(Frame::Request(Request::FinishTurn)),
+            Operation::GetNewCard => Ok(Frame::Request(Response::GetNewCard)),
         }
     }
 }

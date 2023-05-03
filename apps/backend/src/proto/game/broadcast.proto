@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package game.broadcast;
+option csharp_namespace = "Protos.Game";
+
+import "game/board.proto";
+
+enum GameEvent {
+  PLACE_TILE = 0;
+}
+
+message GameBroadcast {
+  GameEvent event = 1;
+  optional board.Board board = 2;
+}

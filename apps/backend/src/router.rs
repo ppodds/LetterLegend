@@ -51,7 +51,7 @@ impl Router {
             .controllers
             .read()
             .unwrap()
-            .get(&Operation::try_from(request.clone())?)
+            .get(&Operation::try_from(&request)?)
         {
             Some(controller) => match controller.handle_request(request, context) {
                 Ok(response) => Ok(response),

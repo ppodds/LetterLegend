@@ -3,10 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use super::tile::Tile;
+use super::board::Board;
 use crate::player::Player;
-
-pub type Board = [[Option<Tile>; 26]; 26];
 
 #[derive(Debug)]
 pub struct Game {
@@ -27,13 +25,10 @@ impl Game {
         for player in players {
             map.insert(player.id, player.clone());
         }
-        // workaround
-        const INIT: Option<Tile> = None;
-        const ARR: [Option<Tile>; 26] = [INIT; 26];
         Self {
             id,
             players: Mutex::new(map),
-            board: Arc::new(Mutex::new([ARR; 26])),
+            board: Arc::new(Mutex::new(Board::new())),
         }
     }
 

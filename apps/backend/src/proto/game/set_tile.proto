@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package game.set_tile;
+option csharp_namespace = "Protos.Game";
+
+message SetTileRequest {
+    uint32 x = 1;
+    uint32 y = 2;
+    string symbol = 3;
+}
+
+message SetTileResponse {
+    bool success = 1;
+}

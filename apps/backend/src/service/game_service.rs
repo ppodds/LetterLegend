@@ -1,13 +1,20 @@
 use std::{
     collections::HashMap,
     error::Error,
+    slice::SliceIndex,
     sync::{Arc, Mutex},
 };
 
-use crate::{game::game::Game, lobby::lobby::Lobby, player::Player};
+use crate::{
+    game::{game::Game, tile::Tile},
+    lobby::lobby::Lobby,
+    player::Player,
+};
 
 #[cfg(not(test))]
 use crate::frame::Response;
+#[cfg(not(test))]
+use crate::model::game::broadcast::{GameBroadcast, GameEvent};
 #[cfg(not(test))]
 use crate::model::lobby::broadcast::{LobbyBroadcast, LobbyEvent};
 
@@ -83,6 +90,26 @@ impl GameService {
 
     pub fn get_gamees(&self) -> Vec<Arc<Game>> {
         self.games.lock().unwrap().values().cloned().collect()
+    }
+
+    pub fn place_tile_on_board(&self, game: Arc<Game>, tile: Tile, x: usize, y: usize) {
+        game.get_board().lock().unwrap().tiles[x][y] = Some(tile);
+        #[cfg(not(test))]
+        for player in game.get_players() {
+            tokio::spawn(async move {
+                if let Err(e) = player
+                    .send_message(Response::GameBroadcast(GameBroadcast {
+                        event: GameEvent::PlaceTile as i32,
+                        board: Some(crate::model::game::board::Board::from(
+                            game.get_board().lock().unwrap().as_ref(),
+                        )),
+                    }))
+                    .await
+                {
+                    eprintln!("Error sending game broadcast: {}", e);
+                }
+            });
+        }
     }
 }
 

@@ -148,7 +148,7 @@ impl Frame {
                 Err(e) => Err(Error::ProtobufDecodeFailed(e)),
             },
             Operation::FinishTurn => Ok(Frame::Request(Request::FinishTurn)),
-            Operation::GetNewCard => Ok(Frame::Request(Response::GetNewCard)),
+            Operation::GetNewCard => Ok(Frame::Request(Request::GetNewCard)),
         }
     }
 }

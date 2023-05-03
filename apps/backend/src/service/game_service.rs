@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     error::Error,
-    slice::SliceIndex,
     sync::{Arc, Mutex},
 };
 
@@ -95,20 +94,24 @@ impl GameService {
     pub fn place_tile_on_board(&self, game: Arc<Game>, tile: Tile, x: usize, y: usize) {
         game.get_board().lock().unwrap().tiles[x][y] = Some(tile);
         #[cfg(not(test))]
-        for player in game.get_players() {
-            tokio::spawn(async move {
-                if let Err(e) = player
-                    .send_message(Response::GameBroadcast(GameBroadcast {
-                        event: GameEvent::PlaceTile as i32,
-                        board: Some(crate::model::game::board::Board::from(
-                            game.get_board().lock().unwrap().as_ref(),
-                        )),
-                    }))
-                    .await
-                {
-                    eprintln!("Error sending game broadcast: {}", e);
-                }
-            });
+        {
+            for player in game.get_players() {
+                let board = game.get_board().clone();
+                tokio::spawn(async move {
+                    let t = Some(crate::model::game::board::Board::from(
+                        &*board.lock().unwrap(),
+                    ));
+                    if let Err(e) = player
+                        .send_message(Response::GameBroadcast(GameBroadcast {
+                            event: GameEvent::PlaceTile as i32,
+                            board: t,
+                        }))
+                        .await
+                    {
+                        eprintln!("Error sending game broadcast: {}", e);
+                    }
+                });
+            }
         }
     }
 }

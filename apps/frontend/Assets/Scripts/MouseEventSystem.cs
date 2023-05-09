@@ -1,38 +1,37 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Events;
-using UnityEngine.EventSystems;
-public class MouseClickEvent : UnityEvent<Vector2>
-{
-  
-}
+using System;
 
-
-public class MouseDragEvent : UnityEvent<Vector2>
-{
-  
-}
-
-public class MouseUpEvent : UnityEvent<Vector2>
-{
-    
-}
 public class MouseEventSystem : MonoBehaviour
 {
-    public MouseClickEvent MouseClickEvent = new MouseClickEvent();
-    public MouseUpEvent MouseUpEvent = new MouseUpEvent();
-    public MouseDragEvent MouseDragEvent;
+    public MouseClickedEvent mouseClickedEvent = new MouseClickedEvent();
+    public MouseReleasedEvent mouseReleasedEvent = new MouseReleasedEvent();
+    public MouseDragEvent mouseDragEvent = new MouseDragEvent();
+    private DateTime? eventStart;
 
     private void Update()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButton(0))
         {
-            MouseClickEvent.Invoke(Input.mousePosition);
+            if (eventStart == null)
+            {
+                eventStart = DateTime.Now;
+            }
+            else if (DateTime.Now.Subtract((DateTime) eventStart).TotalMilliseconds > 150)
+            {
+                mouseDragEvent.Invoke(Input.mousePosition);
+            }
         }
-        else if (Input.GetMouseButtonUp(0))
+        else if (Input.GetMouseButtonUp(0) && eventStart != null)
         {
-            MouseUpEvent.Invoke(Input.mousePosition);
+            if (DateTime.Now.Subtract((DateTime) eventStart).TotalMilliseconds > 150)
+            {
+                mouseReleasedEvent.Invoke(Input.mousePosition);
+            }
+            else
+            {
+                mouseClickedEvent.Invoke(Input.mousePosition);
+            }
+            eventStart = null;
         }
     }
 
@@ -40,6 +39,4 @@ public class MouseEventSystem : MonoBehaviour
     {
 
     }
-
-    
 }

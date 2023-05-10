@@ -1,26 +1,17 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 public class TileUI : MonoBehaviour
 {
-    // Start is called before the first frame update
-    public bool contain(Vector2 position)
+    private BoxCollider2D _testCollider;
+
+    private void Awake()
     {
-        BoxCollider2D collider2D = GetComponent<BoxCollider2D>();
-        collider2D.size = new Vector2(30,30);
-        if (collider2D.bounds.Contains(position)) return true;
-        return false;
-    }
-    void Start()
-    {
-        
+        _testCollider = gameObject.AddComponent<BoxCollider2D>();
+        _testCollider.size = new Vector2(30,30);
     }
 
-    // Update is called once per frame
-    void Update()
+    public bool Contains(Vector2 position)
     {
-        
+        return _testCollider.bounds.Contains(position) ? true : false;
     }
 }

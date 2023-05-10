@@ -3,40 +3,79 @@ using System;
 
 public class MouseEventSystem : MonoBehaviour
 {
-    public MouseClickedEvent mouseClickedEvent = new MouseClickedEvent();
-    public MouseReleasedEvent mouseReleasedEvent = new MouseReleasedEvent();
-    public MouseDragEvent mouseDragEvent = new MouseDragEvent();
-    private DateTime? eventStart;
+    private static MouseEventSystem _mouseEventSystem;
+    private MouseClickedEvent _mouseClickedEvent;
+    private FirstClickedEvent _firstClickedEvent;
+    private MouseReleasedEvent _mouseReleasedEvent;
+    private MouseDraggedEvent _mouseDraggedEvent;
+    private DateTime? _eventStart;
+
+    public static MouseEventSystem GetInstance()
+    {
+        return _mouseEventSystem;
+    }
+
+    public MouseClickedEvent GetMouseClickedEvent()
+    {
+        return _mouseClickedEvent;
+    }
+
+    public FirstClickedEvent GetFirstClickedEvent()
+    {
+        return _firstClickedEvent;
+    }
+
+    public MouseDraggedEvent GetMouseDraggedEvent()
+    {
+        return _mouseDraggedEvent;
+    }
+
+    public MouseReleasedEvent GetMouseReleasedEvent()
+    {
+        return _mouseReleasedEvent;
+    }
+
+    private void Awake()
+    {
+        if (_mouseEventSystem != null && _mouseEventSystem != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        _mouseEventSystem = this;
+        DontDestroyOnLoad(this.gameObject);
+        _mouseClickedEvent = new MouseClickedEvent();
+        _firstClickedEvent = new FirstClickedEvent();
+        _mouseReleasedEvent = new MouseReleasedEvent();
+        _mouseDraggedEvent = new MouseDraggedEvent();
+        _eventStart = null;
+    }
 
     private void Update()
     {
         if (Input.GetMouseButton(0))
         {
-            if (eventStart == null)
+            if (_eventStart == null)
             {
-                eventStart = DateTime.Now;
+                _firstClickedEvent.Invoke(Input.mousePosition);
+                _eventStart = DateTime.Now;
             }
-            else if (DateTime.Now.Subtract((DateTime) eventStart).TotalMilliseconds > 150)
+            else if (DateTime.Now.Subtract((DateTime) _eventStart).TotalMilliseconds > 150)
             {
-                mouseDragEvent.Invoke(Input.mousePosition);
+                _mouseDraggedEvent.Invoke(Input.mousePosition);
             }
         }
-        else if (Input.GetMouseButtonUp(0) && eventStart != null)
+        else if (Input.GetMouseButtonUp(0) && _eventStart != null)
         {
-            if (DateTime.Now.Subtract((DateTime) eventStart).TotalMilliseconds > 150)
+            if (DateTime.Now.Subtract((DateTime) _eventStart).TotalMilliseconds > 150)
             {
-                mouseReleasedEvent.Invoke(Input.mousePosition);
+                _mouseReleasedEvent.Invoke(Input.mousePosition);
             }
             else
             {
-                mouseClickedEvent.Invoke(Input.mousePosition);
+                _mouseClickedEvent.Invoke(Input.mousePosition);
             }
-            eventStart = null;
+            _eventStart = null;
         }
-    }
-
-    private void Start()
-    {
-
     }
 }

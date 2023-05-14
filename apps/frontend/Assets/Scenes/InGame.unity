@@ -333,6 +333,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2292069964802395429, guid: c7cc62c721f2e794e891ca75a9801628, type: 3}
+      propertyPath: tis
+      value: 
+      objectReference: {fileID: 1892919623686457830, guid: 0a6ab81cc4969a34195f675501e87ada, type: 3}
+    - target: {fileID: 2292069964802395429, guid: c7cc62c721f2e794e891ca75a9801628, type: 3}
       propertyPath: mouseEvent
       value: 
       objectReference: {fileID: 861241204}

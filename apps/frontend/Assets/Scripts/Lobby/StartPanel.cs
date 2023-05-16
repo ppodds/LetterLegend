@@ -24,8 +24,8 @@ public class StartPanel : MonoBehaviour
     public void SwitchToLobby()
     {
         startPanel.SetActive(false);
-        lobbyPanel.SetActive(true);
-        roomPanel.SetActive(false);
+        lobbyPanel.SetActive(false);
+        roomPanel.SetActive(true);
     }
     
     private void SwitchToStart()

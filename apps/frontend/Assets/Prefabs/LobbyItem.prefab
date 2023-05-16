@@ -147,7 +147,7 @@ GameObject:
   - component: {fileID: 1623742906548255129}
   - component: {fileID: 7264707199756777134}
   m_Layer: 5
-  m_Name: Leader
+  m_Name: Lead
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -418,6 +418,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a3124355c8d441d4a98b3809f6aeb698, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  startPanel: {fileID: 0}
-  lobbyPanel: {fileID: 0}
-  roomPanel: {fileID: 0}

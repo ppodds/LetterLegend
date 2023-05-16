@@ -21,13 +21,14 @@ public class HandField : MonoBehaviour
 
         _handField = this;
         var currentPosition = handField.GetComponent<RectTransform>().position;
+        var widthRef = (handField.GetComponent<RectTransform>().rect.width - blockUI.GetComponent<RectTransform>().rect.width) / 2;
         _blockList = new GameObject[8];
         _selectBlockUI = null;
         _selectBlockPosition = Vector3.zero;
         _mouseEventSystem = MouseEventSystem.GetInstance();
         for (var i = 0; i < _blockList.Length; i++)
         {
-            var bottomCenter = new Vector3(currentPosition.x - 165 + 40 * i, currentPosition.y, 0f);
+            var bottomCenter = new Vector3(currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i, currentPosition.y, 0f);
             _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
         }
 
@@ -125,11 +126,12 @@ public class HandField : MonoBehaviour
     public void AddBlock(string text)
     {
         var currentPosition = handField.GetComponent<RectTransform>().position;
+        var widthRef = (handField.GetComponent<RectTransform>().rect.width - blockUI.GetComponent<RectTransform>().rect.width) / 2;
         for (var i = 0; i < _blockList.Length; i++)
         {
             if (_blockList[i] == null)
             {
-                var bottomCenter = new Vector3(currentPosition.x - 165 + 40 * i, currentPosition.y, 0f);
+                var bottomCenter = new Vector3(currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i, currentPosition.y, 0f);
                 _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
                 _blockList[i].GetComponent<BlockUI>().SetText(text);
                 break;

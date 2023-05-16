@@ -1,24 +1,27 @@
-﻿using Unity.VisualScripting;
-using UnityEngine;
-using UnityEngine.UI;
+﻿using UnityEngine;
 using Random = UnityEngine.Random;
 
 public class HandField : MonoBehaviour
 {
+    private static HandField _handField;
     public GameObject blockUI;
     private GameObject[] _blockList;
-    private Button _button;
     public GameObject handField;
-    private static BlockUI _selectBlockUI;
+    private BlockUI _selectBlockUI;
     private Vector3 _selectBlockPosition;
     private MouseEventSystem _mouseEventSystem;
 
     private void Awake()
     {
+        if (_handField != null && _handField != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        _handField = this;
         var currentPosition = handField.GetComponent<RectTransform>().position;
         _blockList = new GameObject[8];
-        _button = transform.Find("Button").GetComponent<Button>();
-        _button.transform.position = new Vector3(currentPosition.x + 165, currentPosition.y, 0f);
         _selectBlockUI = null;
         _selectBlockPosition = Vector3.zero;
         _mouseEventSystem = MouseEventSystem.GetInstance();
@@ -29,12 +32,14 @@ public class HandField : MonoBehaviour
         }
 
         ResetBlock();
-        _button.onClick.AddListener(ResetBlock);
         _mouseEventSystem.GetMouseClickedEvent().AddListener(MouseClicked);
         _mouseEventSystem.GetFirstClickedEvent().AddListener(FirstClicked);
         _mouseEventSystem.GetMouseDraggedEvent().AddListener(MouseDragged);
-        Board.GetReleasedEvent().AddListener(MouseReleased);
-        Board.GetRightClickedEvent().AddListener(AddBlock);
+    }
+
+    public static HandField GetInstance()
+    {
+        return _handField;
     }
 
     private void ResetBlock()
@@ -78,32 +83,20 @@ public class HandField : MonoBehaviour
         }
     }
 
-    private void MouseReleased(bool placed)
+    public void ResetPosition()
     {
-        if (placed)
-        {
-            DeleteSelectObject();
-        }
-        else
-        {
-            if (_selectBlockUI != null) _selectBlockUI.transform.position = _selectBlockPosition;
-        }
-
+        _selectBlockUI.transform.position = _selectBlockPosition;
         _selectBlockUI = null;
         _selectBlockPosition = Vector3.zero;
     }
 
-    public static BlockUI GetSelectBlockUI()
+    public bool GetSelectBlock()
     {
-        return _selectBlockUI;
+        if (_selectBlockUI != null) return true;
+        return false;
     }
 
-    public static string GetSelectText()
-    {
-        return _selectBlockUI.GetText();
-    }
-
-    private void DeleteSelectObject()
+    public void DeleteSelectObject()
     {
         for (var i = 0; i < _blockList.Length; i++)
         {
@@ -112,16 +105,24 @@ public class HandField : MonoBehaviour
                 var block = _blockList[i].GetComponent<BlockUI>();
                 if (block == _selectBlockUI)
                 {
-                    block.transform.SetParent(null);
-                    Destroy(block);
+                    Destroy(block.gameObject);
                     _blockList[i] = null;
                     break;
                 }
             }
         }
+
+        _selectBlockUI = null;
+        _selectBlockPosition = Vector3.zero;
     }
 
-    private void AddBlock(string text)
+    public string GetText()
+    {
+        if (GetSelectBlock()) return _selectBlockUI.GetText();
+        return null;
+    }
+
+    public void AddBlock(string text)
     {
         var currentPosition = handField.GetComponent<RectTransform>().position;
         for (var i = 0; i < _blockList.Length; i++)

@@ -6,6 +6,8 @@ public class Block : MonoBehaviour
     private TextMeshPro _textMeshPro;
     private BoxCollider2D _testCollider;
     private Camera _mainCamera;
+    private MouseEventSystem _mouseEventSystem;
+    private HandField _handField;
 
     private void Awake()
     {
@@ -13,25 +15,34 @@ public class Block : MonoBehaviour
         _textMeshPro.text = "";
         _testCollider = gameObject.GetComponent<BoxCollider2D>();
         _mainCamera = Camera.main;
+        _mouseEventSystem = MouseEventSystem.GetInstance();
+        _mouseEventSystem.GetMouseRightClickedEvent().AddListener(MouseRightClicked);
+        _handField = HandField.GetInstance();
     }
 
-    public string Contains(Vector2 position)
+    public bool Contains(Vector2 position)
     {
         var worldPosition = _mainCamera.ScreenToWorldPoint(position);
-        if (_testCollider.bounds.Contains((Vector2)worldPosition) && HandField.GetSelectBlockUI() != null
-                                                                  && _textMeshPro.text == "")
+        if (_testCollider.bounds.Contains((Vector2)worldPosition) && _textMeshPro.text == "")
         {
-            _textMeshPro.text = HandField.GetSelectText();
-            return "true";
-        }
-        else if (_testCollider.bounds.Contains((Vector2)worldPosition) && HandField.GetSelectBlockUI() == null
-                                                                       && _textMeshPro.text != "")
-        {
-            string returnString = _textMeshPro.text;
-            _textMeshPro.text = "";
-            return returnString;
+            return true;
         }
 
-        return "false";
+        return false;
+    }
+
+    private void MouseRightClicked(Vector2 position)
+    {
+        var worldPosition = _mainCamera.ScreenToWorldPoint(position);
+        if (_testCollider.bounds.Contains((Vector2)worldPosition) && _textMeshPro.text != "")
+        {
+            _handField.AddBlock(_textMeshPro.text);
+            _textMeshPro.text = "";
+        }
+    }
+
+    public void SetText(string text)
+    {
+        _textMeshPro.text = text;
     }
 }

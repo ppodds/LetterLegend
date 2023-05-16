@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
 using Protos.Control;
+using Protos.Lobby;
 
 namespace IO.Net
 {
@@ -40,6 +43,17 @@ namespace IO.Net
             }
         }
 
+        public async Task<List<LobbyInfo>> GetLobby()
+        {
+            var res = ListResponse.Parser.ParseFrom(await Rpc(Operation.ListLobby));
+            if (!res.Success)
+            {
+                throw new Exception("get lobby list fail");
+            }
+            return res.LobbyInfos.LobbyInfos_.ToList();
+        }
+        
+        
         public Task Reconnect()
         {
             throw new NotImplementedException();

@@ -1,31 +1,68 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 public class Board : MonoBehaviour
 {
-    // Start is called before the first frame update
-    public GameObject tile;
-    private MouseEventSystem mouseEventSystem;
-    public void Start()
+    public GameObject block;
+    private List<GameObject> _blocks = new List<GameObject>();
+    private MouseEventSystem _mouseEventSystem;
+    private static UnityEvent<bool> _releasedEvent;
+    private static UnityEvent<string> _rightClickedEvent;
+
+    private void Awake()
     {
-        mouseEventSystem = MouseEventSystem.GetInstance();
-        for (int i = 0; i < 26; i++)
+        for (var i = 0; i < 26; i++)
         {
-            for (int j = 0; j < 26; j++)
+            for (var j = 0; j < 26; j++)
             {
-                Instantiate(tile, new Vector3(-13+i, -13+j , 0), new Quaternion(), GameObject.Find("Board").transform);
+                var tempBlock = Instantiate(block, new Vector3(i * 1.3f, j * 1.3f, 0f), Quaternion.identity,
+                    GameObject.Find("Board").transform);
+                _blocks.Add(tempBlock);
             }
         }
-        mouseEventSystem.GetMouseClickedEvent().AddListener(OnMouseClick);
-    }
-    private void OnMouseClick(Vector2 position)
-    {
 
+        _mouseEventSystem = MouseEventSystem.GetInstance();
+        _mouseEventSystem.GetMouseReleasedEvent().AddListener(MouseReleased);
+        _mouseEventSystem.GetMouseRightClickedEvent().AddListener(MouseRightClicked);
+        _releasedEvent = new UnityEvent<bool>();
+        _rightClickedEvent = new UnityEvent<string>();
     }
-    // Update is called once per frame
-    public void Update()
+
+    private void MouseReleased(Vector2 position)
     {
-        
+        foreach (var tempBlock in _blocks)
+        {
+            if (tempBlock.GetComponent<Block>().Contains(position) == "true")
+            {
+                _releasedEvent.Invoke(true);
+                return;
+            }
+        }
+
+        _releasedEvent.Invoke(false);
+    }
+
+    private void MouseRightClicked(Vector2 position)
+    {
+        foreach (var tempBlock in _blocks)
+        {
+            string returnString = tempBlock.GetComponent<Block>().Contains(position);
+            if (returnString != "true" && returnString != "false")
+            {
+                _rightClickedEvent.Invoke(returnString);
+                return;
+            }
+        }
+    }
+
+    public static UnityEvent<bool> GetReleasedEvent()
+    {
+        return _releasedEvent;
+    }
+
+    public static UnityEvent<string> GetRightClickedEvent()
+    {
+        return _rightClickedEvent;
     }
 }

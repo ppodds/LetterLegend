@@ -1,29 +1,43 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class Board : MonoBehaviour
 {
-    // Start is called before the first frame update
-    public GameObject tile;
-    void Start()
+    public GameObject block;
+    private readonly List<GameObject> _blocks = new List<GameObject>();
+    private MouseEventSystem _mouseEventSystem;
+    private HandField _handField;
+
+    private void Awake()
     {
-        for (int i = 0; i < 26; i++)
+        var scale = block.transform.localScale.x;
+        for (var i = 0; i < 26; i++)
         {
-            for (int j = 0; j < 26; j++)
+            for (var j = 0; j < 26; j++)
             {
-                Instantiate(tile, new Vector3(-13+i, -13+j , 0), new Quaternion(), GameObject.Find("Board").transform);
+                var tempBlock = Instantiate(block, new Vector3(i * scale, j * scale, 0f), Quaternion.identity,
+                    GameObject.Find("Board").transform);
+                _blocks.Add(tempBlock);
             }
         }
-        FindObjectOfType<MouseEventSystem>().MouseClickEvent.AddListener(OnMouseClick);
-    }
-    private void OnMouseClick(Vector2 position)
-    {
 
+        _mouseEventSystem = MouseEventSystem.GetInstance();
+        _mouseEventSystem.GetMouseReleasedEvent().AddListener(MouseReleased);
+        _handField = HandField.GetInstance();
     }
-    // Update is called once per frame
-    void Update()
+
+    private void MouseReleased(Vector2 position)
     {
-        
+        foreach (var tempBlock in _blocks)
+        {
+            if (tempBlock.GetComponent<Block>().Contains(position) && _handField.GetSelectBlock())
+            {
+                tempBlock.GetComponent<Block>().SetText(_handField.GetText());
+                _handField.DeleteSelectObject();
+                return;
+            }
+        }
+
+        _handField.ResetPosition();
     }
 }

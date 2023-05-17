@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Google.Protobuf;
 using Protos.Control;
 using Protos.Lobby;
+using UnityEngine;
 
 namespace IO.Net
 {
@@ -53,6 +54,42 @@ namespace IO.Net
             return res.LobbyInfos.LobbyInfos_.ToList();
         }
         
+        public async Task<Lobby> CreateLobby(uint maxPlayers)
+        {
+            var req = new CreateRequest()
+            {
+                MaxPlayers = maxPlayers
+            };
+            
+            var stream = new MemoryStream();
+            req.WriteTo(new CodedOutputStream(stream));
+            var res = CreateResponse.Parser.ParseFrom(await Rpc(Operation.CreateLobby, stream.ToArray()));
+            if (!res.Success)
+            {
+                throw new Exception("create room failed");
+            }
+
+            return res.Lobby;
+        }
+        
+        public async Task<Lobby> JoinLobby(uint lobbyId)
+        {
+            var req = new JoinRequest()
+            {
+                LobbyId = lobbyId
+            };
+            
+            var stream = new MemoryStream();
+            req.WriteTo(new CodedOutputStream(stream));
+            
+            var res = JoinResponse.Parser.ParseFrom(await Rpc(Operation.JoinLobby, stream.ToArray()));
+            if (!res.Success)
+            {
+                throw new Exception("join room failed");
+            }
+
+            return res.Lobby;
+        }
         
         public Task Reconnect()
         {

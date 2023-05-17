@@ -22,9 +22,11 @@ public class StartPanel : MonoBehaviour
     
     private void Awake()
     {
-        SwitchToStart();
+        // SwitchToStart();
         // SwitchToLobby();
-        TestInput();
+        // startPanel.gameObject.SetActive(true);
+        // lobbyPanel.gameObject.SetActive(false);
+        // roomPanel.gameObject.SetActive(false);
     }
 
     private void TestInput()
@@ -33,25 +35,22 @@ public class StartPanel : MonoBehaviour
         _host = "127.0.0.1";
         _port = 45678;
     }
-    public void SwitchToLobby()
-    {
-        startPanel.SetActive(false);
-        lobbyPanel.SetActive(false);
-        roomPanel.SetActive(true);
-    }
-    
-    private void SwitchToStart()
-    {
-        startPanel.SetActive(true);
-        lobbyPanel.SetActive(false);
-        roomPanel.SetActive(false);
-    }
+    // public void SwitchToLobby()
+    // {
+    //     GameManager.Instance.SwitchScene("lobbyPanel");
+    // }
+    //
+    // private void SwitchToStart()
+    // {
+    //     GameManager.Instance.SwitchScene("startPanel");
+    // }
     
     public void SetInput()
     {
         _playerName = nameField.text;
         _host = hostField.text;
         _port = int.Parse(tcpPortField.text);
+        TestInput();
         Debug.Log(_playerName);
         Debug.Log(_host);
         Debug.Log(_port);
@@ -59,9 +58,15 @@ public class StartPanel : MonoBehaviour
     
     public async void Login()
     {
-        var tcpClient = new GameTcpClient(_host, _port);
-        await tcpClient.ConnectAsync(_playerName);
-        lobbyPanel.GetComponent<LobbyPanel>().tcpClient=tcpClient;
+        SetInput();
+        GameManager.Instance.Server = new Server{Host = _host, TcpPort = _port};
+        var task = GameManager.Instance.ConnectToServer();
+        if (task)
+        {
+            await GameManager.Instance.GameTcpClient.ConnectAsync(_playerName);
+        }
+        gameObject.SetActive(false);
+        lobbyPanel.SetActive(true);
     }
     
 }

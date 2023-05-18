@@ -20,6 +20,7 @@ use crate::{
 };
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 #[derive(Debug, Clone)]
 pub struct Server {
@@ -59,7 +60,8 @@ impl Server {
 
         loop {
             let (socket, _) = listener.accept().await?;
-            let (tx, mut rx): (Sender<Frame>, Receiver<Frame>) = channel(128);
+            let (tx, rx): (Sender<Frame>, Receiver<Frame>) = channel(128);
+            let shared_rx_bak = Arc::new(Mutex::new(rx));
             let client_id = next_client_id;
             next_client_id += 1;
 
@@ -67,6 +69,7 @@ impl Server {
             // clone the map
             let connection = connection_bak.clone();
             let server = self.clone();
+            let shared_rx = shared_rx_bak.clone();
 
             tokio::spawn(async move {
                 loop {
@@ -77,6 +80,7 @@ impl Server {
                         }
                         Err(e) => {
                             eprintln!("failed to read frame; err = {:?}", e);
+                            shared_rx.lock().await.close();
                             break;
                         }
                     };
@@ -109,10 +113,11 @@ impl Server {
             });
 
             let connection = connection_bak.clone();
+            let shared_rx = shared_rx_bak.clone();
 
             tokio::spawn(async move {
                 loop {
-                    while let Some(frame) = rx.recv().await {
+                    while let Some(frame) = shared_rx.lock().await.recv().await {
                         println!("received frame; frame = {:?}", frame);
                         match connection.lock().await.write_frame(&frame).await {
                             Ok(_) => {

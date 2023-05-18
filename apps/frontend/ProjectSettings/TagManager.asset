@@ -47,3 +47,15 @@ TagManager:
   - name: Block
     uniqueID: 3062762337
     locked: 0
+  - name: Square
+    uniqueID: 1133612863
+    locked: 0
+  - name: Text
+    uniqueID: 3029227053
+    locked: 0
+  - name: HandField
+    uniqueID: 590529287
+    locked: 0
+  - name: BlockUI
+    uniqueID: 2898652865
+    locked: 0

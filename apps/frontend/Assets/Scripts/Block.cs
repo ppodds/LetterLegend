@@ -1,46 +1,48 @@
-using System.Collections;
-using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
-using UnityEngine.Events;
 
 public class Block : MonoBehaviour
 {
-    public float speed = 10f;
-    private bool isClick = false;
-    private Camera mainCamera;
-    private void Start()
+    private TextMeshPro _textMeshPro;
+    private BoxCollider2D _testCollider;
+    private Camera _mainCamera;
+    private MouseEventSystem _mouseEventSystem;
+    private HandField _handField;
+
+    private void Awake()
     {
-        mainCamera = Camera.main;
+        _textMeshPro = transform.Find("Square").transform.Find("Text").GetComponent<TextMeshPro>();
+        _textMeshPro.text = "";
+        _testCollider = gameObject.GetComponent<BoxCollider2D>();
+        _mainCamera = Camera.main;
+        _mouseEventSystem = MouseEventSystem.GetInstance();
+        _mouseEventSystem.GetMouseRightClickedEvent().AddListener(MouseRightClicked);
+        _handField = HandField.GetInstance();
     }
 
-    public void IsClick()
+    public bool Contains(Vector2 position)
     {
-        isClick = true;
-    }
-
-    public void NoClick()
-    {
-        isClick = false;
-    }
-    private void Update()
-    {
-        if (isClick)
+        var worldPosition = _mainCamera.ScreenToWorldPoint(position);
+        if (_testCollider.bounds.Contains((Vector2)worldPosition) && _textMeshPro.text == "")
         {
-            Vector3 mousePosition = Input.mousePosition;
-            // mousePosition.z = transform.position.z - mainCamera.transform.position.z;
-            Vector2 targetPosition = mainCamera.ScreenToWorldPoint(mousePosition);
-            Vector2 currentPostion = transform.position;
-            Vector2 unitVector = (targetPosition - currentPostion);
-            unitVector = unitVector.normalized;
-            if ((targetPosition - currentPostion).magnitude < speed * Time.deltaTime)
-            {
-                transform.position = targetPosition;
-            }
-            else
-            {
-                transform.position += (Vector3)unitVector * speed * Time.deltaTime;
-            }
-            transform.position = Vector3.MoveTowards(transform.position, targetPosition, speed * Time.deltaTime);
+            return true;
         }
+
+        return false;
+    }
+
+    private void MouseRightClicked(Vector2 position)
+    {
+        var worldPosition = _mainCamera.ScreenToWorldPoint(position);
+        if (_testCollider.bounds.Contains((Vector2)worldPosition) && _textMeshPro.text != "")
+        {
+            _handField.AddBlock(_textMeshPro.text);
+            _textMeshPro.text = "";
+        }
+    }
+
+    public void SetText(string text)
+    {
+        _textMeshPro.text = text;
     }
 }

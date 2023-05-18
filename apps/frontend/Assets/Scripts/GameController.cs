@@ -11,9 +11,8 @@ public class GameController : MonoBehaviour
     
     private void Awake()
     {
-        Instantiate(mouseEventSystem);
+        
     }
-    
     // Start is called before the first frame update
     void Start()
     {

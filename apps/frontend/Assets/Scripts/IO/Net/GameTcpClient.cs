@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
 using Protos.Control;
+using Protos.Game;
 using Protos.Lobby;
 using UnityEngine;
 
@@ -35,7 +36,7 @@ namespace IO.Net
                 Name = name
             };
             var stream = new MemoryStream();
-            req.WriteTo(new CodedOutputStream(stream));
+            req.WriteTo(stream);
                 
             var res = ConnectResponse.Parser.ParseFrom(await Rpc(Operation.Connect, stream.ToArray()));
             if (!res.Success)
@@ -62,7 +63,7 @@ namespace IO.Net
             };
             
             var stream = new MemoryStream();
-            req.WriteTo(new CodedOutputStream(stream));
+            req.WriteTo(stream);
             var res = CreateResponse.Parser.ParseFrom(await Rpc(Operation.CreateLobby, stream.ToArray()));
             if (!res.Success)
             {
@@ -80,7 +81,7 @@ namespace IO.Net
             };
             
             var stream = new MemoryStream();
-            req.WriteTo(new CodedOutputStream(stream));
+            req.WriteTo(stream);
             
             var res = JoinResponse.Parser.ParseFrom(await Rpc(Operation.JoinLobby, stream.ToArray()));
             if (!res.Success)
@@ -89,6 +90,36 @@ namespace IO.Net
             }
 
             return res.Lobby;
+        }
+        
+        public async Task QuitLobby()
+        {
+            var res = QuitResponse.Parser.ParseFrom(await Rpc(Operation.Ready));
+            if (!res.Success)
+            {
+                throw new Exception("Someone is not Ready");
+            }
+        }
+        
+        public async Task<bool> Ready()
+        {
+            var res = ReadyResponse.Parser.ParseFrom(await Rpc(Operation.Ready));
+            if (!res.Success)
+            {
+                throw new Exception("Someone is not Ready");
+            }
+
+            return true;
+        }
+        
+        public async Task<Protos.Game.Board> Start()
+        {
+            var res = StartResponse.Parser.ParseFrom(await Rpc(Operation.StartGame));
+            if (!res.Success)
+            {
+                throw new Exception("Someone is not Ready");
+            }
+            return res.Board;
         }
         
         public Task Reconnect()

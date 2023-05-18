@@ -147,7 +147,7 @@ GameObject:
   - component: {fileID: 1623742906548255129}
   - component: {fileID: 7264707199756777134}
   m_Layer: 5
-  m_Name: Lead
+  m_Name: Name
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -201,7 +201,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Lead:'
+  m_text: 'Name:'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -406,3 +406,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 69d380267289bab4da1648e65c61a987, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  name: {fileID: 7264707199756777134}
+  id: {fileID: 6343388400385814909}

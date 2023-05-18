@@ -11,20 +11,39 @@ public class RoomPanel : MonoBehaviour
     public GameObject playerItem;
     public Transform playerListTransform;
     public Lobby Lobby { get; set; }
-    public void SwitchToLobby()
-    {
-        startPanel.SetActive(false);
-        lobbyPanel.SetActive(true);
-        roomPanel.SetActive(false);
-    }
 
+    public async void BackToLobby()
+    {
+        await GameManager.Instance.GameTcpClient.QuitLobby();
+        // GameManager.Instance.lobbyPanel.gameObject.SetActive(true);
+        lobbyPanel.SetActive(true);
+        gameObject.SetActive(false);
+    }
+    
     public void UpdateRoom()
     {
+        Debug.Log(Lobby.Players.Count);
         foreach (var player in Lobby.Players)
         {
+            Debug.Log(player.Id + player.Name);
             var t = Instantiate(playerItem, playerListTransform).GetComponent<PlayerItem>();
             t.SetText(Lobby, player);
         }
+    }
+
+    public async void StartGame()
+    {
+        var ready = await GameManager.Instance.GameTcpClient.Ready();
+        if (!ready)
+        {
+            Debug.Log("start game fail");
+        }
+        GameManager.Instance.StartGame();
+    }
+    
+    private void OnDisable()
+    {
+        for (var i = 0; i < playerListTransform.childCount; i++) Destroy(playerListTransform.GetChild(i).gameObject);
     }
     
     public void SwitchToGame()
@@ -32,12 +51,4 @@ public class RoomPanel : MonoBehaviour
         
     }
     
-    // private void Awake()
-    // {
-    //     for (int i = 0; i < 5; i++)
-    //     {
-    //         var t = Instantiate(playerItem, playerListTransform).GetComponent<PlayerItem>();
-    //         t.GetComponent<Button>().onClick.AddListener(SwitchToGame);
-    //     }
-    // }
 }

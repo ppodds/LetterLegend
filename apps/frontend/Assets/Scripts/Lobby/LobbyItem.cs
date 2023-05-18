@@ -9,14 +9,14 @@ using UnityEngine.UI;
 
 public class LobbyItem : MonoBehaviour
 {
-    private TMP_Text _lead;
-    private TMP_Text _people;
+    public TMP_Text lead;
+    public TMP_Text people;
     public LobbyInfo LobbyInfo { get; set; }
     
     public void UpdateText()
     {
-        _lead.SetText("Lead: " + LobbyInfo.Id);
-        _people.SetText(LobbyInfo.CurrentPlayers + " / " + LobbyInfo.MaxPlayers);
+        lead.SetText("Lead: " + LobbyInfo.Id);
+        people.SetText(LobbyInfo.CurrentPlayers + " / " + LobbyInfo.MaxPlayers);
     }
     
     private async Task JoinRoomTask()
@@ -31,8 +31,8 @@ public class LobbyItem : MonoBehaviour
         GameManager.Instance.lobbyPanel.EnterRoom(lobby);
     }
     
-    public void JoinRoom()
+    public async void JoinRoom()
     {
-        JoinRoomTask();
+        await JoinRoomTask();
     }
 }

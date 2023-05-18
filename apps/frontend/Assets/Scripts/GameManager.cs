@@ -3,6 +3,7 @@ using IO.Net;
 using Protos.Lobby;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.WSA;
 
 public struct Server
@@ -59,5 +60,12 @@ public class GameManager : MonoBehaviour
         GameTcpClient = new GameTcpClient(Server.Host, Server.TcpPort);
         //TODO: check success
         return true;
+    }
+
+    public async void StartGame()
+    {
+        var res = await GameTcpClient.Start();
+        SceneManager.LoadScene("InGame");
+        
     }
 }

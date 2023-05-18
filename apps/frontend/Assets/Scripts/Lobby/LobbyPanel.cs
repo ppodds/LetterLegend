@@ -13,16 +13,6 @@ public class LobbyPanel : MonoBehaviour
     public GameObject roomPanel;
     public GameObject lobbyItem;
     public Transform lobbyListTransform;
-    
-    // public void SwitchToStart()
-    // {
-    //     GameManager.Instance.SwitchScene("startPanel");
-    // }
-    //
-    // public void SwitchToRoom()
-    // {
-    //     GameManager.Instance.SwitchScene("roomPanel");
-    // }
 
     private async void Join(uint maxPlayers)
     {
@@ -68,7 +58,12 @@ public class LobbyPanel : MonoBehaviour
     {
         for (var i = 0; i < lobbyListTransform.childCount; i++) Destroy(lobbyListTransform.GetChild(i).gameObject);
     }
-    
+
+    public void BackToStart()
+    {
+        GameManager.Instance.startPanel.gameObject.SetActive(true);
+        gameObject.SetActive(false);
+    }
     private void Awake()
     {
         // for (int i = 0; i < 5; i++)

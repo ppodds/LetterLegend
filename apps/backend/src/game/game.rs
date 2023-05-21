@@ -70,6 +70,7 @@ impl Game {
     pub fn next_turn(&self) -> u32 {
         *self.turn.lock().unwrap() += 1;
         let pop_player = self.turn_queue.lock().unwrap().pop_front().unwrap();
+        pop_player.set_has_shuffled(false);
         self.turn_queue.lock().unwrap().push_back(pop_player);
         *self.turn.lock().unwrap()
     }
@@ -96,6 +97,22 @@ mod tests {
         );
         game.next_turn();
         assert_eq!(*game.turn.lock().unwrap(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn next_turn_has_shuffled_reset() -> Result<(), Box<dyn Error + Sync + Send>> {
+        let game = Game::new(
+            0,
+            vec![
+                Arc::new(Player::new(0, String::from("test"))),
+                Arc::new(Player::new(1, String::from("test1"))),
+            ],
+        );
+        let person_now = game.get_player_in_this_turn();
+        person_now.set_has_shuffled(true);
+        game.next_turn();
+        assert_eq!(person_now.get_has_shuffled(), false);
         Ok(())
     }
 

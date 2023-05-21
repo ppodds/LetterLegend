@@ -6,7 +6,7 @@ option csharp_namespace = "Protos.Game";
 message SetTileRequest {
     uint32 x = 1;
     uint32 y = 2;
-    string symbol = 3;
+    uint32 cardIndex = 3;
 }
 
 message SetTileResponse {

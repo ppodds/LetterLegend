@@ -53,11 +53,12 @@ impl GameService {
             *next_id += 1;
             game
         };
-        for player in game.get_players() {
-            player.set_game(Some(game.clone()));
+        for game_player in game.get_players() {
+            game_player.player.set_game(Some(game.clone()));
             #[cfg(not(test))]
             tokio::spawn(async move {
-                if let Err(e) = player
+                if let Err(e) = game_player
+                    .player
                     .send_message(Response::LobbyBroadcast(LobbyBroadcast {
                         event: LobbyEvent::Start as i32,
                         lobby: None,
@@ -78,8 +79,8 @@ impl GameService {
     pub fn remove_game(&self, game: Arc<Game>) -> Result<Arc<Game>, Box<dyn Error + Send + Sync>> {
         match self.games.lock().unwrap().remove(&game.id) {
             Some(game) => {
-                for player in game.get_players() {
-                    player.set_game(None);
+                for game_player in game.get_players() {
+                    game_player.player.set_game(None);
                 }
                 Ok(game)
             }
@@ -95,13 +96,14 @@ impl GameService {
         game.get_board().lock().unwrap().tiles[x][y] = Some(tile);
         #[cfg(not(test))]
         {
-            for player in game.get_players() {
+            for game_player in game.get_players() {
                 let board = game.get_board().clone();
                 tokio::spawn(async move {
                     let t = Some(crate::model::game::board::Board::from(
                         &*board.lock().unwrap(),
                     ));
-                    if let Err(e) = player
+                    if let Err(e) = game_player
+                        .player
                         .send_message(Response::GameBroadcast(GameBroadcast {
                             event: GameEvent::PlaceTile as i32,
                             board: t,

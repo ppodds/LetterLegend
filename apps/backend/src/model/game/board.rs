@@ -34,22 +34,10 @@ mod tests {
     fn from_board_return_board() {
         let mut board = crate::game::board::Board::new();
         let player = Arc::new(Player::new(0, String::from("test")));
-        board.tiles[0][0] = Some(crate::game::tile::Tile::new(
-            String::from("a"),
-            player.clone(),
-        ));
-        board.tiles[0][25] = Some(crate::game::tile::Tile::new(
-            String::from("b"),
-            player.clone(),
-        ));
-        board.tiles[25][0] = Some(crate::game::tile::Tile::new(
-            String::from("c"),
-            player.clone(),
-        ));
-        board.tiles[25][25] = Some(crate::game::tile::Tile::new(
-            String::from("d"),
-            player.clone(),
-        ));
+        board.tiles[0][0] = Some(crate::game::tile::Tile::new('a', player.clone()));
+        board.tiles[0][25] = Some(crate::game::tile::Tile::new('b', player.clone()));
+        board.tiles[25][0] = Some(crate::game::tile::Tile::new('c', player.clone()));
+        board.tiles[25][25] = Some(crate::game::tile::Tile::new('d', player.clone()));
         let board = Board::from(&board);
         assert_eq!(
             board.rows[0].columns[0].tile.clone().unwrap().char,

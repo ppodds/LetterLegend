@@ -101,6 +101,22 @@ mod tests {
     }
 
     #[test]
+    fn next_turn_has_shuffled_reset() -> Result<(), Box<dyn Error + Sync + Send>> {
+        let game = Game::new(
+            0,
+            vec![
+                Arc::new(Player::new(0, String::from("test"))),
+                Arc::new(Player::new(1, String::from("test1"))),
+            ],
+        );
+        let person_now = game.get_player_in_this_turn();
+        person_now.set_has_shuffled(true);
+        game.next_turn();
+        assert_eq!(person_now.get_has_shuffled(), false);
+        Ok(())
+    }
+
+    #[test]
     fn next_turn_without_parameter_should_return_first_person_when_his_second_round(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game = Game::new(

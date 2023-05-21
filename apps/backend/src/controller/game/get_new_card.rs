@@ -121,20 +121,15 @@ mod tests {
         let player = controller
             .player_service
             .add_player(0, String::from("test"));
-        let player1 = controller
-            .player_service
-            .add_player(1, String::from("test1"));
         let lobby_service = Arc::new(lobby_service::LobbyService::new());
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
-        lobby_service.add_player_to_lobby(player1.clone(), lobby.clone())?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
-        let lobby_player1 = lobby.clone().get_player(player1.clone().id).unwrap();
         lobby_player.set_ready(true);
-        lobby_player1.set_ready(true);
-        let game = controller.game_service.start_game(player, lobby)?;
-        let player_now = game.get_player_in_this_turn();
-        player_now.get_new_card();
-        assert_eq!(player_now.get_has_shuffled(), true);
+        controller.game_service.start_game(player, lobby)?;
+        controller.handle_request(Request::GetNewCard, RequestContext { client_id: 0 })?;
+        assert!(controller
+            .handle_request(Request::GetNewCard, RequestContext { client_id: 0 })
+            .is_err());
         Ok(())
     }
 }

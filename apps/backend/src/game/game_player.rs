@@ -7,6 +7,7 @@ use crate::player::Player;
 #[derive(Debug)]
 pub struct GamePlayer {
     cards: Mutex<Vec<Option<char>>>,
+    has_shuffled: Mutex<bool>,
     pub player: Arc<Player>,
 }
 
@@ -21,8 +22,17 @@ impl GamePlayer {
         let cards = GamePlayer::generate_new_card();
         Self {
             cards: Mutex::new(cards),
+            has_shuffled: Mutex::new(false),
             player,
         }
+    }
+
+    pub fn set_has_shuffled(&self, value: bool) {
+        *self.has_shuffled.lock().unwrap() = value;
+    }
+
+    pub fn get_has_shuffled(&self) -> bool {
+        *self.has_shuffled.lock().unwrap()
     }
 
     pub fn generate_new_card() -> Vec<Option<char>> {
@@ -40,8 +50,10 @@ impl GamePlayer {
         cards
     }
 
-    pub fn get_new_card(&self) {
+    pub fn get_new_card(&self) -> Vec<Option<char>> {
         *self.cards.lock().unwrap() = GamePlayer::generate_new_card();
+        *self.has_shuffled.lock().unwrap() = true;
+        self.cards.lock().unwrap().clone()
     }
 
     pub fn get_cards(&self) -> Vec<Option<char>> {

@@ -70,6 +70,7 @@ impl Game {
     pub fn next_turn(&self) -> u32 {
         *self.turn.lock().unwrap() += 1;
         let pop_player = self.turn_queue.lock().unwrap().pop_front().unwrap();
+        pop_player.set_has_shuffled(false);
         self.turn_queue.lock().unwrap().push_back(pop_player);
         *self.turn.lock().unwrap()
     }

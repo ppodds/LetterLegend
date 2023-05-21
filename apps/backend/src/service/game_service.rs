@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    game::{game::Game, tile::Tile},
+    game::{game::Game, game_player::GamePlayer, tile::Tile},
     lobby::lobby::Lobby,
     player::Player,
 };
@@ -115,6 +115,35 @@ impl GameService {
                 });
             }
         }
+    }
+
+    pub fn shuffle(
+        &self,
+        #[cfg(not(test))] game: Arc<Game>,
+        game_player: Arc<GamePlayer>,
+    ) -> Result<Vec<Option<char>>, Box<dyn Error + Send + Sync>> {
+        if game_player.get_has_shuffled() {
+            return Err("Player has shuffled in this turn".into());
+        }
+        let cards = game_player.get_new_card();
+        #[cfg(not(test))]
+        {
+            for game_player in game.get_players() {
+                tokio::spawn(async move {
+                    if let Err(e) = game_player
+                        .player
+                        .send_message(Response::GameBroadcast(GameBroadcast {
+                            event: GameEvent::Shuffle as i32,
+                            board: None,
+                        }))
+                        .await
+                    {
+                        eprintln!("Error sending game broadcast: {}", e);
+                    }
+                });
+            }
+        }
+        Ok(cards)
     }
 }
 

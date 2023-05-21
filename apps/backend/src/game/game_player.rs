@@ -18,6 +18,14 @@ impl PartialEq for GamePlayer {
 
 impl GamePlayer {
     pub fn new(player: Arc<Player>) -> Self {
+        let cards = GamePlayer::generate_new_card();
+        Self {
+            cards: Mutex::new(cards),
+            player,
+        }
+    }
+
+    pub fn generate_new_card() -> Vec<Option<char>> {
         let alphabet = (b'a'..=b'z') // Start as u8
             .map(|c| c as char) // Convert all to chars
             .filter(|c| c.is_alphabetic()) // Filter only alphabetic chars
@@ -29,10 +37,11 @@ impl GamePlayer {
                 alphabet[rand::random::<u8>() as usize % alphabet.len()],
             ));
         }
-        Self {
-            cards: Mutex::new(cards),
-            player,
-        }
+        cards
+    }
+
+    pub fn get_new_card(&self) {
+        *self.cards.lock().unwrap() = GamePlayer::generate_new_card();
     }
 
     pub fn get_cards(&self) -> Vec<Option<char>> {
@@ -43,16 +52,5 @@ impl GamePlayer {
         let card = self.cards.lock().unwrap()[index];
         self.cards.lock().unwrap()[index] = None;
         card
-    }
-
-    pub fn get_new_card(&self) {
-        let alphabet: Vec<char> = ('a'..='z').collect::<Vec<_>>();
-        let mut cards = Vec::new();
-        for _ in 0..8 {
-            cards.push(Some(
-                alphabet[rand::random::<u8>() as usize % alphabet.len()],
-            ));
-        }
-        *self.cards.lock().unwrap() = cards;
     }
 }

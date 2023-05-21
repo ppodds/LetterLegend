@@ -58,7 +58,12 @@ impl Controller for SetTileController {
         if turn_player != game_player {
             return Err("Player can't place tile when not his turn".into());
         }
-
+        if req.x >= 26 {
+            return Err("Tile out of board".into());
+        }
+        if req.y >= 26 {
+            return Err("Tile out of board".into());
+        }
         self.game_service.place_tile_on_board(
             game,
             Tile {
@@ -115,6 +120,31 @@ mod tests {
                         _ => panic!("invalid test case"),
                     }
                 },
+            )
+            .is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn handle_request_with_test_user_set_tile_out_of_board_should_return_error(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let controller =
+            SetTileController::new(Arc::new(PlayerService::new()), Arc::new(GameService::new()));
+        let player = controller
+            .player_service
+            .add_player(0, String::from("test"));
+        let lobby_service = Arc::new(lobby_service::LobbyService::new());
+        let lobby = lobby_service.create_lobby(player.clone(), 4)?;
+        let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
+        lobby_player.set_ready(true);
+        assert!(controller
+            .handle_request(
+                Request::SetTile(SetTileRequest {
+                    x: 27,
+                    y: 1,
+                    card_index: 1,
+                }),
+                RequestContext { client_id: 0 },
             )
             .is_err());
         Ok(())

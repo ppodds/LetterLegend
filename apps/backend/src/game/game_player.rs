@@ -46,11 +46,7 @@ impl GamePlayer {
     }
 
     pub fn get_new_card(&self) {
-        let alphabet = (b'a'..=b'z') // Start as u8
-            .map(|c| c as char) // Convert all to chars
-            .filter(|c| c.is_alphabetic()) // Filter only alphabetic chars
-            .collect::<Vec<_>>();
-
+        let alphabet: Vec<char> = ('a'..='z').collect::<Vec<_>>();
         let mut cards = Vec::new();
         for _ in 0..8 {
             cards.push(Some(

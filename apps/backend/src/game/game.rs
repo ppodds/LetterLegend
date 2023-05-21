@@ -69,12 +69,8 @@ impl Game {
 
     pub fn next_turn(&self) -> u32 {
         *self.turn.lock().unwrap() += 1;
-        let pop_player = self.turn_queue.lock().unwrap().clone().pop_front().unwrap();
-        self.turn_queue
-            .lock()
-            .unwrap()
-            .clone()
-            .push_back(pop_player);
+        let pop_player = self.turn_queue.lock().unwrap().pop_front().unwrap();
+        self.turn_queue.lock().unwrap().push_back(pop_player);
         *self.turn.lock().unwrap()
     }
 
@@ -86,7 +82,7 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     use std::error::Error;
 
     #[test]
@@ -118,6 +114,23 @@ mod tests {
         let person_now = game.get_player_in_this_turn();
         let person_first = game.get_players();
         assert_eq!(*person_first.get(0).unwrap(), person_now);
+        Ok(())
+    }
+
+    #[test]
+    fn next_turn_without_parameter_player_in_this_turn_should_changed(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let game = Game::new(
+            0,
+            vec![
+                Arc::new(Player::new(0, String::from("test"))),
+                Arc::new(Player::new(1, String::from("test1"))),
+            ],
+        );
+        let person_first = game.get_player_in_this_turn();
+        game.next_turn();
+        let person_second = game.get_player_in_this_turn();
+        assert_ne!(person_second.player.id, person_first.player.id);
         Ok(())
     }
 }

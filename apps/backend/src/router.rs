@@ -67,7 +67,10 @@ impl Router {
 #[cfg(test)]
 mod tests {
     use crate::{
-        controller::control::connect::ConnectController, service::player_service::PlayerService,
+        controller::control::connect::ConnectController,
+        service::{
+            game_service::GameService, lobby_service::LobbyService, player_service::PlayerService,
+        },
     };
 
     use super::*;
@@ -77,7 +80,10 @@ mod tests {
         let router = Router::new();
         router.register_controller(
             Operation::Connect,
-            Box::new(ConnectController::new(Arc::new(PlayerService::new()))),
+            Box::new(ConnectController::new(Arc::new(PlayerService::new(
+                Arc::new(LobbyService::new()),
+                Arc::new(GameService::new()),
+            )))),
         );
         assert!(router
             .controllers

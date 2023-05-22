@@ -45,11 +45,16 @@ impl Controller for HeartbeatController {
 mod tests {
     use std::error::Error;
 
+    use crate::service::{game_service::GameService, lobby_service::LobbyService};
+
     use super::*;
 
     #[test]
     fn handle_request_with_user_not_exist_should_return_error() -> Result<(), Box<dyn Error>> {
-        let controller = HeartbeatController::new(Arc::new(PlayerService::new()));
+        let controller = HeartbeatController::new(Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        )));
         assert!(controller
             .handle_request(Request::Heartbeat, RequestContext { client_id: 0 })
             .is_err());

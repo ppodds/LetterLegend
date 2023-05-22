@@ -1,6 +1,12 @@
 use std::io::Result;
 fn main() -> Result<()> {
-    prost_build::compile_protos(&["src/proto/player/player.proto"], &["src/proto/"])?;
+    prost_build::compile_protos(
+        &[
+            "src/proto/player/player.proto",
+            "src/proto/player/players.proto",
+        ],
+        &["src/proto/"],
+    )?;
     prost_build::compile_protos(
         &[
             "src/proto/control/connect.proto",

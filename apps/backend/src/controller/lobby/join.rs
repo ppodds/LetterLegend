@@ -59,12 +59,16 @@ mod tests {
     use super::*;
     use crate::model::lobby::join::JoinRequest;
     use crate::player::Player;
+    use crate::service::game_service::GameService;
     use std::error::Error;
 
     #[test]
     fn handle_request_with_test_user_should_join_lobby() -> Result<(), Box<dyn Error + Send + Sync>>
     {
-        let player_service = Arc::new(PlayerService::new());
+        let player_service = Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        ));
         let leader = player_service.add_player(0, String::from("test1"));
         player_service.add_player(1, String::from("test2"));
         let lobby_service = Arc::new(LobbyService::new());
@@ -86,7 +90,10 @@ mod tests {
     #[test]
     fn handle_request_with_not_exist_user_and_test_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let player_service = Arc::new(PlayerService::new());
+        let player_service = Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        ));
         player_service.add_player(0, String::from("test1"));
         let lobby_service = Arc::new(LobbyService::new());
         lobby_service.create_lobby(Arc::new(Player::new(0, String::from("test"))), 4)?;
@@ -103,7 +110,10 @@ mod tests {
     #[test]
     fn handle_request_with_test_user_and_not_exist_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let player_service = Arc::new(PlayerService::new());
+        let player_service = Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        ));
         player_service.add_player(0, String::from("test"));
         let lobby_service = Arc::new(LobbyService::new());
         let controller = JoinController::new(player_service, lobby_service);
@@ -119,7 +129,10 @@ mod tests {
     #[test]
     fn handle_request_with_not_exist_user_and_not_exist_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let player_service = Arc::new(PlayerService::new());
+        let player_service = Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        ));
         let controller = JoinController::new(player_service, Arc::new(LobbyService::new()));
         assert!(controller
             .handle_request(

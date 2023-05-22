@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package player.players;
+option csharp_namespace = "Protos.Player";
+
+import "player/player.proto";
+
+message Players {
+    repeated player.Player players = 1;
+}

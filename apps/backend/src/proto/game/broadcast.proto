@@ -4,13 +4,17 @@ package game.broadcast;
 option csharp_namespace = "Protos.Game";
 
 import "game/board.proto";
+import "player/players.proto";
 
 enum GameEvent {
   PLACE_TILE = 0;
   SHUFFLE = 1;
+  LEAVE = 2;
+  DESTROY = 3;
 }
 
 message GameBroadcast {
   GameEvent event = 1;
   optional board.Board board = 2;
+  optional player.players.Players players = 3;
 }

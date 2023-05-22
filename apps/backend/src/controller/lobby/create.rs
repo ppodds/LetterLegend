@@ -53,13 +53,16 @@ impl Controller for CreateController {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::lobby::create::CreateRequest;
+    use crate::{model::lobby::create::CreateRequest, service::game_service::GameService};
     use std::error::Error;
 
     #[test]
     fn handle_request_with_test_user_should_create_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let player_service = Arc::new(PlayerService::new());
+        let player_service = Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        ));
         player_service.add_player(0, String::from("test"));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
         let res = match controller.handle_request(
@@ -77,7 +80,10 @@ mod tests {
     #[test]
     fn handle_request_with_test_user_and_invaild_max_players_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let player_service = Arc::new(PlayerService::new());
+        let player_service = Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        ));
         player_service.add_player(0, String::from("test"));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
         assert!(controller
@@ -98,7 +104,10 @@ mod tests {
     #[test]
     fn handle_request_with_not_exist_user_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let player_service = Arc::new(PlayerService::new());
+        let player_service = Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        ));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
         assert!(controller
             .handle_request(
@@ -112,7 +121,10 @@ mod tests {
     #[test]
     fn handle_request_with_test_user_should_contains_test_user(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let player_service = Arc::new(PlayerService::new());
+        let player_service = Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        ));
         let player = player_service.add_player(0, String::from("test"));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
         let res = match controller.handle_request(

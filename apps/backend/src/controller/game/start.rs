@@ -61,15 +61,20 @@ impl Controller for StartController {
 mod tests {
     use std::error::Error;
 
-    use crate::service::lobby_service;
+    use crate::service::lobby_service::{self, LobbyService};
 
     use super::*;
 
     #[test]
     fn handle_request_with_test_user_in_test_lobby_should_start_game(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let controller =
-            StartController::new(Arc::new(PlayerService::new()), Arc::new(GameService::new()));
+        let controller = StartController::new(
+            Arc::new(PlayerService::new(
+                Arc::new(LobbyService::new()),
+                Arc::new(GameService::new()),
+            )),
+            Arc::new(GameService::new()),
+        );
         let player = controller
             .player_service
             .add_player(0, String::from("test"));

@@ -58,14 +58,17 @@ impl Controller for ReadyController {
 mod tests {
     use std::error::Error;
 
-    use crate::service::lobby_service::LobbyService;
+    use crate::service::{game_service::GameService, lobby_service::LobbyService};
 
     use super::*;
 
     #[test]
     fn handle_request_with_test_user_in_test_lobby_should_ready(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let controller = ReadyController::new(Arc::new(PlayerService::new()));
+        let controller = ReadyController::new(Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        )));
         let lobby_service = LobbyService::new();
         let leader = controller
             .player_service
@@ -79,7 +82,10 @@ mod tests {
     #[test]
     fn handle_request_with_test_user_in_test_lobby_should_not_ready(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let controller = ReadyController::new(Arc::new(PlayerService::new()));
+        let controller = ReadyController::new(Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        )));
         let lobby_service = LobbyService::new();
         let leader = controller
             .player_service

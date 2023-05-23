@@ -50,13 +50,19 @@ impl Controller for ConnectController {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::control::connect::ConnectRequest;
+    use crate::{
+        model::control::connect::ConnectRequest,
+        service::{game_service::GameService, lobby_service::LobbyService},
+    };
     use std::error::Error;
 
     #[test]
     fn handle_request_with_test_user_should_create_test_user(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let controller = ConnectController::new(Arc::new(PlayerService::new()));
+        let controller = ConnectController::new(Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        )));
         controller.handle_request(
             Request::Connect(ConnectRequest {
                 name: String::from("test"),
@@ -72,7 +78,10 @@ mod tests {
     #[test]
     fn handle_request_with_test_user_who_already_connected_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let controller = ConnectController::new(Arc::new(PlayerService::new()));
+        let controller = ConnectController::new(Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        )));
         controller.handle_request(
             Request::Connect(ConnectRequest {
                 name: String::from("test"),

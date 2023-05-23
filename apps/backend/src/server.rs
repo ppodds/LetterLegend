@@ -27,8 +27,6 @@ pub struct Server {
     host: String,
     port: u32,
     player_service: Arc<PlayerService>,
-    // lobby_service: Arc<LobbyService>,
-    // game_service: Arc<GameService>,
     router: Arc<Router>,
 }
 
@@ -136,9 +134,12 @@ impl Server {
     }
 
     pub fn new() -> Self {
-        let player_service = Arc::new(PlayerService::new());
         let lobby_service = Arc::new(LobbyService::new());
         let game_service = Arc::new(game_service::GameService::new());
+        let player_service = Arc::new(PlayerService::new(
+            lobby_service.clone(),
+            game_service.clone(),
+        ));
         let router = Arc::new(Router::new());
         router
             .register_controller(
@@ -193,8 +194,6 @@ impl Server {
             host: String::from("0.0.0.0"),
             port: 45678,
             player_service,
-            // lobby_service,
-            // game_service,
             router,
         }
     }

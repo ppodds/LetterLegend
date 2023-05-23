@@ -98,6 +98,7 @@ impl LobbyService {
             None => return Err("Player is not in a lobby".into()),
         };
         let lobby_player = lobby.remove_player(player.clone())?;
+        let is_lobby_destroy = player == lobby.leader;
         #[cfg(not(test))]
         {
             for lobby_player in lobby.get_players() {
@@ -106,7 +107,10 @@ impl LobbyService {
                     if let Err(e) = lobby_player
                         .player
                         .send_message(Response::LobbyBroadcast(LobbyBroadcast {
-                            event: LobbyEvent::Leave as i32,
+                            event: match is_lobby_destroy {
+                                true => LobbyEvent::Destroy as i32,
+                                false => LobbyEvent::Leave as i32,
+                            },
                             lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby)),
                         }))
                         .await
@@ -117,6 +121,9 @@ impl LobbyService {
             }
         }
         player.set_lobby(None);
+        if is_lobby_destroy {
+            self.remove_lobby(lobby)?;
+        }
         Ok(lobby_player)
     }
 
@@ -209,16 +216,40 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
-        service.create_lobby(leader.clone(), 4)?;
-        service.remove_player_from_lobby(leader)?;
+        let lobby = service.create_lobby(leader.clone(), 4)?;
+        let other_player = Arc::new(Player::new(1, String::from("test1")));
+        service.add_player_to_lobby(other_player.clone(), lobby)?;
+        service.remove_player_from_lobby(other_player)?;
         assert!(service
             .lobbies
             .lock()
             .unwrap()
             .get(&0)
             .unwrap()
-            .get_player(0)
+            .get_player(1)
             .is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn remove_player_from_lobby_with_leader_in_test_lobby_should_destroy_lobby(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let service = LobbyService::new();
+        let leader = Arc::new(Player::new(0, String::from("test")));
+        service.create_lobby(leader.clone(), 4)?;
+        service.remove_player_from_lobby(leader)?;
+        assert!(service.lobbies.lock().unwrap().get(&0).is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn remove_player_from_lobby_with_leader_should_destroy_lobby(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let service = LobbyService::new();
+        let leader = Arc::new(Player::new(0, String::from("test")));
+        service.create_lobby(leader.clone(), 4)?;
+        service.remove_player_from_lobby(leader)?;
+        assert!(service.lobbies.lock().unwrap().is_empty());
         Ok(())
     }
 

@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    game::{game::Game, tile::Tile},
+    game::{game::Game, game_player::GamePlayer, tile::Tile},
     lobby::lobby::Lobby,
     player::Player,
 };
@@ -53,11 +53,12 @@ impl GameService {
             *next_id += 1;
             game
         };
-        for player in game.get_players() {
-            player.set_game(Some(game.clone()));
+        for game_player in game.get_players() {
+            game_player.player.set_game(Some(game.clone()));
             #[cfg(not(test))]
             tokio::spawn(async move {
-                if let Err(e) = player
+                if let Err(e) = game_player
+                    .player
                     .send_message(Response::LobbyBroadcast(LobbyBroadcast {
                         event: LobbyEvent::Start as i32,
                         lobby: None,
@@ -75,11 +76,52 @@ impl GameService {
         self.games.lock().unwrap().get(&id).cloned()
     }
 
+    pub fn remove_player_from_game(
+        &self,
+        player: Arc<Player>,
+    ) -> Result<Arc<GamePlayer>, Box<dyn Error + Send + Sync>> {
+        let game = match player.clone().get_game() {
+            Some(game) => game,
+            None => return Err("Player is not in a game".into()),
+        };
+        let game_player = match game.remove_player(player.clone()) {
+            Some(game) => game,
+            None => return Err("Player is not in the game".into()),
+        };
+        let is_game_destroy = game.get_players().len() == 0;
+        #[cfg(not(test))]
+        {
+            for game_player in game.get_players() {
+                let game = game.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = game_player
+                        .player
+                        .send_message(Response::GameBroadcast(GameBroadcast {
+                            event: GameEvent::Leave as i32,
+                            board: None,
+                            players: Some(crate::model::player::players::Players::from(
+                                &game.get_players(),
+                            )),
+                        }))
+                        .await
+                    {
+                        eprintln!("Error sending game broadcast: {}", e);
+                    }
+                });
+            }
+        }
+        player.set_game(None);
+        if is_game_destroy {
+            self.remove_game(game)?;
+        }
+        Ok(game_player)
+    }
+
     pub fn remove_game(&self, game: Arc<Game>) -> Result<Arc<Game>, Box<dyn Error + Send + Sync>> {
         match self.games.lock().unwrap().remove(&game.id) {
             Some(game) => {
-                for player in game.get_players() {
-                    player.set_game(None);
+                for game_player in game.get_players() {
+                    game_player.player.set_game(None);
                 }
                 Ok(game)
             }
@@ -95,16 +137,18 @@ impl GameService {
         game.get_board().lock().unwrap().tiles[x][y] = Some(tile);
         #[cfg(not(test))]
         {
-            for player in game.get_players() {
+            for game_player in game.get_players() {
                 let board = game.get_board().clone();
                 tokio::spawn(async move {
                     let t = Some(crate::model::game::board::Board::from(
                         &*board.lock().unwrap(),
                     ));
-                    if let Err(e) = player
+                    if let Err(e) = game_player
+                        .player
                         .send_message(Response::GameBroadcast(GameBroadcast {
                             event: GameEvent::PlaceTile as i32,
                             board: t,
+                            players: None,
                         }))
                         .await
                     {
@@ -113,6 +157,36 @@ impl GameService {
                 });
             }
         }
+    }
+
+    pub fn shuffle(
+        &self,
+        #[cfg(not(test))] game: Arc<Game>,
+        game_player: Arc<GamePlayer>,
+    ) -> Result<Vec<Option<char>>, Box<dyn Error + Send + Sync>> {
+        if game_player.get_has_shuffled() {
+            return Err("Player has shuffled in this turn".into());
+        }
+        let cards = game_player.get_new_card();
+        #[cfg(not(test))]
+        {
+            for game_player in game.get_players() {
+                tokio::spawn(async move {
+                    if let Err(e) = game_player
+                        .player
+                        .send_message(Response::GameBroadcast(GameBroadcast {
+                            event: GameEvent::Shuffle as i32,
+                            board: None,
+                            players: None,
+                        }))
+                        .await
+                    {
+                        eprintln!("Error sending game broadcast: {}", e);
+                    }
+                });
+            }
+        }
+        Ok(cards)
     }
 }
 
@@ -201,6 +275,51 @@ mod tests {
         assert!(games.contains(&game1));
         assert!(games.contains(&game2));
         assert!(games.len() == 2);
+        Ok(())
+    }
+
+    #[test]
+    fn remove_player_from_game_with_test_player_should_remove_the_player(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new();
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let game = Arc::new(Game::new(
+            0,
+            vec![
+                player.clone(),
+                Arc::new(Player::new(1, String::from("test2"))),
+            ],
+        ));
+        player.set_game(Some(game.clone()));
+        game_service.games.lock().unwrap().insert(0, game.clone());
+        game_service.remove_player_from_game(player.clone())?;
+        assert!(game.get_player(0).is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn remove_player_from_game_with_test_player_and_game_players_amount_equal_0_should_destroy_game(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new();
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let game = Arc::new(Game::new(0, vec![player.clone()]));
+        player.set_game(Some(game.clone()));
+        game_service.games.lock().unwrap().insert(0, game.clone());
+        game_service.remove_player_from_game(player.clone())?;
+        assert!(game_service.games.lock().unwrap().len() == 0);
+        Ok(())
+    }
+
+    #[test]
+    fn remove_player_from_game_with_test_player_should_return_test_user(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new();
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let game = Arc::new(Game::new(0, vec![player.clone()]));
+        player.set_game(Some(game.clone()));
+        game_service.games.lock().unwrap().insert(0, game.clone());
+        let game_player = game_service.remove_player_from_game(player.clone())?;
+        assert_eq!(game_player.player, player);
         Ok(())
     }
 }

@@ -12,19 +12,25 @@ use std::{
 #[cfg(not(test))]
 use tokio::sync::mpsc::Sender;
 
+use super::{game_service::GameService, lobby_service::LobbyService};
+
 type ClientMap = Arc<Mutex<HashMap<u32, Arc<Player>>>>;
 
 #[derive(Debug, Clone)]
 pub struct PlayerService {
     player_timeout_queue: Arc<Mutex<PriorityQueue<u32, Reverse<Instant>>>>,
     online_player_map: ClientMap,
+    lobby_service: Arc<LobbyService>,
+    game_service: Arc<GameService>,
 }
 
 impl PlayerService {
-    pub fn new() -> Self {
+    pub fn new(lobby_service: Arc<LobbyService>, game_service: Arc<GameService>) -> Self {
         Self {
             player_timeout_queue: Arc::new(Mutex::new(PriorityQueue::new())),
             online_player_map: Arc::new(Mutex::new(HashMap::new())),
+            lobby_service,
+            game_service,
         }
     }
 
@@ -74,13 +80,12 @@ impl PlayerService {
         match self.online_player_map.lock().unwrap().remove(&player.id) {
             Some(player) => {
                 self.player_timeout_queue.lock().unwrap().remove(&player.id);
-                if let Some(lobby) = player.clone().get_lobby() {
-                    lobby.remove_player(player.clone())?;
-                    player.set_lobby(None);
+                if player.clone().get_lobby().is_some() {
+                    self.lobby_service
+                        .remove_player_from_lobby(player.clone())?;
                 };
-                if let Some(game) = player.clone().get_game() {
-                    game.remove_player(player.clone());
-                    player.set_game(None);
+                if player.clone().get_game().is_some() {
+                    self.game_service.remove_player_from_game(player.clone())?;
                 };
                 Ok(player)
             }
@@ -127,14 +132,13 @@ impl PlayerService {
 mod tests {
     use std::{error::Error, time::Duration};
 
-    use crate::{game::game::Game, lobby::lobby::Lobby};
-
     use super::*;
 
     #[test]
     fn add_player_with_test_user_online_player_map_should_include_test_user(
     ) -> Result<(), Box<dyn Error>> {
-        let service = PlayerService::new();
+        let service =
+            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
         service.add_player(0, String::from("test"));
         assert!(service.online_player_map.lock().unwrap().get(&0).is_some());
         Ok(())
@@ -143,7 +147,8 @@ mod tests {
     #[test]
     fn add_player_with_test_user_player_timeout_queue_should_include_test_user(
     ) -> Result<(), Box<dyn Error>> {
-        let service = PlayerService::new();
+        let service =
+            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
         service.add_player(0, String::from("test"));
         assert!(service
             .player_timeout_queue
@@ -157,7 +162,8 @@ mod tests {
     #[test]
     fn kick_timeout_users_with_a_timeout_user_timeout_users_should_be_kicked(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let service = PlayerService::new();
+        let service =
+            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
         service
             .player_timeout_queue
             .lock()
@@ -175,7 +181,8 @@ mod tests {
     #[test]
     fn kick_timeout_users_with_two_timeout_users_and_a_normal_user_timeout_users_should_be_kicked(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let service = PlayerService::new();
+        let service =
+            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
 
         for i in 0..3 {
             service.player_timeout_queue.lock().unwrap().push(
@@ -199,7 +206,8 @@ mod tests {
     #[test]
     fn get_players_with_a_player_in_online_player_map_should_return_a_vec_with_that_player(
     ) -> Result<(), Box<dyn Error>> {
-        let service = PlayerService::new();
+        let service =
+            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
         service
             .online_player_map
             .lock()
@@ -212,10 +220,10 @@ mod tests {
     #[test]
     fn remove_player_with_a_player_in_lobby_should_remove_player_from_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let service = PlayerService::new();
+        let lobby_service = Arc::new(LobbyService::new());
+        let service = PlayerService::new(lobby_service.clone(), Arc::new(GameService::new()));
         let player = service.add_player(0, String::from("test"));
-        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
-        player.set_lobby(Some(lobby.clone()));
+        let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         service.remove_player(player.clone())?;
         assert_eq!(lobby.get_players().len(), 0);
         assert!(player.get_lobby().is_none());
@@ -223,12 +231,14 @@ mod tests {
     }
 
     #[test]
-    fn remove_player_with_a_player_in_game_should_remove_player_from_lobby(
+    fn remove_player_with_a_player_in_game_should_remove_player_from_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let service = PlayerService::new();
+        let game_service = Arc::new(GameService::new());
+        let lobby_service = Arc::new(LobbyService::new());
+        let service = PlayerService::new(lobby_service.clone(), game_service.clone());
         let player = service.add_player(0, String::from("test"));
-        let game = Arc::new(Game::new(0, vec![player.clone()]));
-        player.set_game(Some(game.clone()));
+        let lobby = lobby_service.create_lobby(player.clone(), 4)?;
+        let game = game_service.start_game(player.clone(), lobby)?;
         service.remove_player(player.clone())?;
         assert_eq!(game.get_players().len(), 0);
         assert!(player.get_game().is_none());
@@ -238,7 +248,8 @@ mod tests {
     #[test]
     fn remove_player_with_a_player_not_existing_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let service = PlayerService::new();
+        let service =
+            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
         assert!(service
             .remove_player(Arc::new(Player::new(0, String::from("test"))))
             .is_err());
@@ -248,7 +259,8 @@ mod tests {
     #[test]
     fn heartbeat_with_test_player_should_refresh_timeout(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let service = PlayerService::new();
+        let service =
+            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
         let player = service.add_player(0, String::from("test"));
         service
             .player_timeout_queue
@@ -274,7 +286,8 @@ mod tests {
     #[test]
     fn heartbeat_with_not_exist_player_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let service = PlayerService::new();
+        let service =
+            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
         let player = Arc::new(Player::new(0, String::from("test")));
         assert!(service.heartbeat(player.clone()).is_err());
         Ok(())

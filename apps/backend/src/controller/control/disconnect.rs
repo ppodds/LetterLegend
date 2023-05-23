@@ -46,12 +46,17 @@ impl Controller for DisconnectController {
 mod tests {
     use std::error::Error;
 
+    use crate::service::{game_service::GameService, lobby_service::LobbyService};
+
     use super::*;
 
     #[test]
     fn handle_request_with_user_already_connected_should_be_removed(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let controller = DisconnectController::new(Arc::new(PlayerService::new()));
+        let controller = DisconnectController::new(Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        )));
         controller
             .player_service
             .add_player(0, String::from("test"));
@@ -62,7 +67,10 @@ mod tests {
 
     #[test]
     fn handle_request_with_user_not_exist_should_return_error() -> Result<(), Box<dyn Error>> {
-        let controller = DisconnectController::new(Arc::new(PlayerService::new()));
+        let controller = DisconnectController::new(Arc::new(PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new()),
+        )));
         assert!(controller
             .handle_request(Request::Disconnect, RequestContext { client_id: 0 })
             .is_err());

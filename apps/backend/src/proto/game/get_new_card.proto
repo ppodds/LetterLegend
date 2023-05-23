@@ -3,7 +3,9 @@ syntax = "proto3";
 package game.get_new_card;
 option csharp_namespace = "Protos.Game";
 
+import "game/card.proto";
+
 message GetNewCardResponse {
     bool success = 1;
-    repeated string symbols = 2;
+    repeated card.Card cards = 2;
 }

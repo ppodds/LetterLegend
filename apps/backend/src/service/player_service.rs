@@ -83,17 +83,6 @@ impl PlayerService {
             None => Err("Player not found".into()),
         }
     }
-
-    pub fn clean_client_resources(
-        &self,
-        client_id: u32,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.remove_player(match self.get_player(client_id) {
-            Some(player) => player,
-            None => return Err("Player not found")?,
-        })?;
-        Ok(())
-    }
 }
 
 #[cfg(test)]

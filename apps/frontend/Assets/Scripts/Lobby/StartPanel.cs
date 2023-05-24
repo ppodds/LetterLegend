@@ -19,15 +19,6 @@ public class StartPanel : MonoBehaviour
     private string _playerName;
     private string _host;
     private int _port;
-    
-    private void Awake()
-    {
-        // SwitchToStart();
-        // SwitchToLobby();
-        // startPanel.gameObject.SetActive(true);
-        // lobbyPanel.gameObject.SetActive(false);
-        // roomPanel.gameObject.SetActive(false);
-    }
 
     private void TestInput()
     {
@@ -35,25 +26,13 @@ public class StartPanel : MonoBehaviour
         _host = "127.0.0.1";
         _port = 45678;
     }
-    // public void SwitchToLobby()
-    // {
-    //     GameManager.Instance.SwitchScene("lobbyPanel");
-    // }
-    //
-    // private void SwitchToStart()
-    // {
-    //     GameManager.Instance.SwitchScene("startPanel");
-    // }
-    
+
     public void SetInput()
     {
         _playerName = nameField.text;
         _host = hostField.text;
         _port = int.Parse(tcpPortField.text);
         TestInput();
-        Debug.Log(_playerName);
-        Debug.Log(_host);
-        Debug.Log(_port);
     }
     
     public async void Login()

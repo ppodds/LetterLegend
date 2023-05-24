@@ -101,14 +101,18 @@ namespace IO.Net
             }
         }
         
-        public async Task<bool> Ready()
+        // public async Task SetReady()
+        // {
+        //     await Rpc(Operation.Ready);
+        // }
+        
+        public async Task<bool> SetReady()
         {
             var res = ReadyResponse.Parser.ParseFrom(await Rpc(Operation.Ready));
             if (!res.Success)
             {
-                throw new Exception("Someone is not Ready");
+                throw new Exception("Set Ready failed");
             }
-
             return true;
         }
         

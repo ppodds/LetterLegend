@@ -4,7 +4,6 @@ using Protos.Lobby;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.WSA;
 
 public struct Server
 {
@@ -19,13 +18,9 @@ public class GameManager : MonoBehaviour
     public StartPanel startPanel;
     [SerializeField] private GameObject menuUI;
     [SerializeField] private GameObject gameUI;
-    public Toast toast;
-    
     public Transform playersParent;
-
     private Lobby _lobby;
     public uint PlayerID { get; private set; }
-
     public GameTcpClient GameTcpClient { get; private set; }
 
     public static GameManager Instance { get; private set; }
@@ -45,7 +40,6 @@ public class GameManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
-        
     }
 
     public void SwitchScene(string scene)
@@ -66,6 +60,5 @@ public class GameManager : MonoBehaviour
     {
         var res = await GameTcpClient.Start();
         SceneManager.LoadScene("InGame");
-        
     }
 }

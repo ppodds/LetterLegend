@@ -10,19 +10,18 @@ public class RoomPanel : MonoBehaviour
     public GameObject roomPanel;
     public GameObject playerItem;
     public Transform playerListTransform;
+    public Button readyButton;
     public Lobby Lobby { get; set; }
 
     public async void BackToLobby()
     {
         await GameManager.Instance.GameTcpClient.QuitLobby();
-        // GameManager.Instance.lobbyPanel.gameObject.SetActive(true);
         lobbyPanel.SetActive(true);
         gameObject.SetActive(false);
     }
     
     public void UpdateRoom()
     {
-        Debug.Log(Lobby.Players.Count);
         foreach (var player in Lobby.Players)
         {
             Debug.Log(player.Id + player.Name);
@@ -30,25 +29,26 @@ public class RoomPanel : MonoBehaviour
             t.SetText(Lobby, player);
         }
     }
-
-    public async void StartGame()
+    public async void SetReady()
     {
-        var ready = await GameManager.Instance.GameTcpClient.Ready();
-        if (!ready)
+        var res = await GameManager.Instance.GameTcpClient.SetReady();
+        if (res)
         {
-            Debug.Log("start game fail");
+            readyButton.image.color = Color.gray;
         }
+        else
+        {
+            Debug.Log("Set ready failed");
+        }
+    }
+    public void StartGame()
+    {
         GameManager.Instance.StartGame();
     }
+
     
     private void OnDisable()
     {
         for (var i = 0; i < playerListTransform.childCount; i++) Destroy(playerListTransform.GetChild(i).gameObject);
     }
-    
-    public void SwitchToGame()
-    {
-        
-    }
-    
 }

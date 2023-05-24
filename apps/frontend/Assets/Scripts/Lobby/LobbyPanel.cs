@@ -38,8 +38,6 @@ public class LobbyPanel : MonoBehaviour
 
     private async void OnEnable()
     {
-        Debug.Log(GameManager.Instance.GameTcpClient);
-        // for (var i = 0; i < 3; i++) CreateLobby();
         var lobbyList = await GameManager.Instance.GameTcpClient.GetLobby();
         if (lobbyList == null)
         {
@@ -51,7 +49,6 @@ public class LobbyPanel : MonoBehaviour
             t.LobbyInfo = lobbyInfo;
             t.UpdateText();
         }
-        // t.GetComponent<Button>().onClick.AddListener(SwitchToRoom);
     }
     
     private void OnDisable()
@@ -63,13 +60,5 @@ public class LobbyPanel : MonoBehaviour
     {
         GameManager.Instance.startPanel.gameObject.SetActive(true);
         gameObject.SetActive(false);
-    }
-    private void Awake()
-    {
-        // for (int i = 0; i < 5; i++)
-        // {
-        //     var t = Instantiate(lobbyItem, lobbyListTransform).GetComponent<LobbyItem>();
-        //     t.GetComponent<Button>().onClick.AddListener(SwitchToRoom);
-        // }
     }
 }

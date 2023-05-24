@@ -24,11 +24,12 @@ public class LobbyItem : MonoBehaviour
         var lobby = await GameManager.Instance.GameTcpClient.JoinLobby(LobbyInfo.Id);
         if (lobby == null)
         {
-            // GameManager.Instance.toast.PushToast("Join failed");
             Debug.Log("Join failed");
             return;
         }
+        Debug.Log(lobby);
         GameManager.Instance.lobbyPanel.EnterRoom(lobby);
+        
     }
     
     public async void JoinRoom()

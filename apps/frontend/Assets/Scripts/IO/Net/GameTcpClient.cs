@@ -45,7 +45,7 @@ namespace IO.Net
             }
         }
 
-        public async Task<List<LobbyInfo>> GetLobby()
+        public async Task<List<LobbyInfo>> GetLobbies()
         {
             var res = ListResponse.Parser.ParseFrom(await Rpc(Operation.ListLobby));
             if (!res.Success)
@@ -94,18 +94,13 @@ namespace IO.Net
         
         public async Task QuitLobby()
         {
-            var res = QuitResponse.Parser.ParseFrom(await Rpc(Operation.Ready));
+            var res = QuitResponse.Parser.ParseFrom(await Rpc(Operation.QuitLobby));
             if (!res.Success)
             {
-                throw new Exception("Someone is not Ready");
+                throw new Exception("Quit lobby failed");
             }
         }
-        
-        // public async Task SetReady()
-        // {
-        //     await Rpc(Operation.Ready);
-        // }
-        
+
         public async Task<bool> SetReady()
         {
             var res = ReadyResponse.Parser.ParseFrom(await Rpc(Operation.Ready));

@@ -38,7 +38,7 @@ public class LobbyPanel : MonoBehaviour
 
     private async void OnEnable()
     {
-        var lobbyList = await GameManager.Instance.GameTcpClient.GetLobby();
+        var lobbyList = await GameManager.Instance.GameTcpClient.GetLobbies();
         if (lobbyList == null)
         {
             return;

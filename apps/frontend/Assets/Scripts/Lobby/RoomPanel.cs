@@ -29,6 +29,7 @@ public class RoomPanel : MonoBehaviour
             t.SetText(Lobby, player);
         }
     }
+    
     public async void SetReady()
     {
         var res = await GameManager.Instance.GameTcpClient.SetReady();
@@ -41,11 +42,11 @@ public class RoomPanel : MonoBehaviour
             Debug.Log("Set ready failed");
         }
     }
+    
     public void StartGame()
     {
         GameManager.Instance.StartGame();
     }
-
     
     private void OnDisable()
     {

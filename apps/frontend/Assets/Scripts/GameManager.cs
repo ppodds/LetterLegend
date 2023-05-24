@@ -42,13 +42,6 @@ public class GameManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    public void SwitchScene(string scene)
-    {
-        startPanel.gameObject.SetActive(scene=="startPanel");
-        lobbyPanel.gameObject.SetActive(scene=="lobbyPanel");
-        roomPanel.gameObject.SetActive(scene=="roomPanel");
-    }
-    
     public bool ConnectToServer()
     {
         GameTcpClient = new GameTcpClient(Server.Host, Server.TcpPort);

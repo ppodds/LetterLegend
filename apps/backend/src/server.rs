@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use crate::connection::Connection;
 use crate::controller::control::connect::ConnectController;
+use crate::controller::game::get_new_card::GetNewCardController;
+use crate::controller::game::set_tile::SetTileController;
 use crate::frame::Frame;
 use crate::router::{RequestContext, Router};
 use crate::service::lobby_service::LobbyService;
@@ -181,6 +183,20 @@ impl Server {
             .register_controller(
                 Operation::StartGame,
                 Box::new(StartController::new(
+                    player_service.clone(),
+                    game_service.clone(),
+                )),
+            )
+            .register_controller(
+                Operation::SetTile,
+                Box::new(SetTileController::new(
+                    player_service.clone(),
+                    game_service.clone(),
+                )),
+            )
+            .register_controller(
+                Operation::GetNewCard,
+                Box::new(GetNewCardController::new(
                     player_service.clone(),
                     game_service.clone(),
                 )),

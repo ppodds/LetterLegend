@@ -1,10 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
 using Protos.Control;
+using Protos.Game;
+using Protos.Lobby;
+using UnityEngine;
 
 namespace IO.Net
 {
@@ -31,7 +36,7 @@ namespace IO.Net
                 Name = name
             };
             var stream = new MemoryStream();
-            req.WriteTo(new CodedOutputStream(stream));
+            req.WriteTo(stream);
                 
             var res = ConnectResponse.Parser.ParseFrom(await Rpc(Operation.Connect, stream.ToArray()));
             if (!res.Success)
@@ -40,6 +45,82 @@ namespace IO.Net
             }
         }
 
+        public async Task<List<LobbyInfo>> GetLobbies()
+        {
+            var res = ListResponse.Parser.ParseFrom(await Rpc(Operation.ListLobby));
+            if (!res.Success)
+            {
+                throw new Exception("get lobby list fail");
+            }
+            return res.LobbyInfos.LobbyInfos_.ToList();
+        }
+        
+        public async Task<Lobby> CreateLobby(uint maxPlayers)
+        {
+            var req = new CreateRequest()
+            {
+                MaxPlayers = maxPlayers
+            };
+            
+            var stream = new MemoryStream();
+            req.WriteTo(stream);
+            var res = CreateResponse.Parser.ParseFrom(await Rpc(Operation.CreateLobby, stream.ToArray()));
+            if (!res.Success)
+            {
+                throw new Exception("create room failed");
+            }
+
+            return res.Lobby;
+        }
+        
+        public async Task<Lobby> JoinLobby(uint lobbyId)
+        {
+            var req = new JoinRequest()
+            {
+                LobbyId = lobbyId
+            };
+            
+            var stream = new MemoryStream();
+            req.WriteTo(stream);
+            
+            var res = JoinResponse.Parser.ParseFrom(await Rpc(Operation.JoinLobby, stream.ToArray()));
+            if (!res.Success)
+            {
+                throw new Exception("join room failed");
+            }
+
+            return res.Lobby;
+        }
+        
+        public async Task QuitLobby()
+        {
+            var res = QuitResponse.Parser.ParseFrom(await Rpc(Operation.QuitLobby));
+            if (!res.Success)
+            {
+                throw new Exception("Quit lobby failed");
+            }
+        }
+
+        public async Task<bool> SetReady()
+        {
+            var res = ReadyResponse.Parser.ParseFrom(await Rpc(Operation.Ready));
+            if (!res.Success)
+            {
+                throw new Exception("Set Ready failed");
+            }
+            return true;
+        }
+        
+        public async Task<Protos.Game.Board> Start()
+        {
+            var res = StartResponse.Parser.ParseFrom(await Rpc(Operation.StartGame));
+            if (!res.Success)
+            {
+                throw new Exception("Someone is not Ready");
+            }
+            return res.Board;
+        }
+        
         public Task Reconnect()
         {
             throw new NotImplementedException();

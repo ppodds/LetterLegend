@@ -5,5 +5,14 @@
         Connect,
         Disconnect,
         Heartbeat,
+        CreateLobby,
+        JoinLobby,
+        QuitLobby,
+        ListLobby,
+        Ready,
+        StartGame,
+        SetTile,
+        FinishTurn,
+        GetNewCard,
     }
 }

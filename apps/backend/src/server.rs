@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use crate::connection::Connection;
 use crate::controller::control::connect::ConnectController;
+use crate::controller::game::get_new_card::GetNewCardController;
+use crate::controller::game::set_tile::SetTileController;
 use crate::frame::Frame;
 use crate::router::{RequestContext, Router};
 use crate::service::lobby_service::LobbyService;
@@ -21,7 +23,7 @@ use crate::{
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::Mutex;
-use tokio::time::{sleep, Duration};
+
 #[derive(Debug, Clone)]
 pub struct Server {
     host: String,
@@ -44,18 +46,6 @@ impl Server {
 
         let mut next_client_id = 0;
 
-        let server = self.clone();
-
-        tokio::spawn(async move {
-            loop {
-                sleep(Duration::from_secs(60)).await;
-                match server.player_service.kick_timeout_users() {
-                    Ok(_) => println!("kick timeout players success"),
-                    Err(e) => eprintln!("failed to kick timeout players, err: {}", e),
-                }
-            }
-        });
-
         loop {
             let (socket, _) = listener.accept().await?;
             let (tx, rx): (Sender<Frame>, Receiver<Frame>) = channel(128);
@@ -63,7 +53,7 @@ impl Server {
             let client_id = next_client_id;
             next_client_id += 1;
 
-            let connection_bak = Arc::new(tokio::sync::Mutex::new(Connection::new(socket)));
+            let connection_bak = Arc::new(Connection::new(socket));
             // clone the map
             let connection = connection_bak.clone();
             let server = self.clone();
@@ -71,13 +61,23 @@ impl Server {
 
             tokio::spawn(async move {
                 loop {
-                    let frame = match connection.lock().await.try_read_frame() {
+                    let frame = match connection.read_frame().await {
                         Ok(Some(frame)) => frame,
                         Ok(None) => {
                             continue;
                         }
                         Err(e) => {
                             eprintln!("failed to read frame; err = {:?}", e);
+                            if let Some(player) = server.player_service.get_player(client_id) {
+                                match server.player_service.remove_player(player) {
+                                    Ok(player) => println!(
+                                        "clean up player's resource success. player id: {}, player name: {}", player.id, player.name
+                                    ),
+                                    Err(e) => {
+                                        eprintln!("failed to clean up player's resource, err: {e}")
+                                    }
+                                }
+                            };
                             shared_rx.lock().await.close();
                             break;
                         }
@@ -117,7 +117,7 @@ impl Server {
                 loop {
                     while let Some(frame) = shared_rx.lock().await.recv().await {
                         println!("received frame; frame = {:?}", frame);
-                        match connection.lock().await.write_frame(&frame).await {
+                        match connection.write_frame(&frame).await {
                             Ok(_) => {
                                 println!("sent frame; frame = {:?}", frame);
                                 continue;
@@ -150,10 +150,7 @@ impl Server {
                 Operation::Disconnect,
                 Box::new(DisconnectController::new(player_service.clone())),
             )
-            .register_controller(
-                Operation::Heartbeat,
-                Box::new(HeartbeatController::new(player_service.clone())),
-            )
+            .register_controller(Operation::Heartbeat, Box::new(HeartbeatController::new()))
             .register_controller(
                 Operation::CreateLobby,
                 Box::new(CreateController::new(
@@ -186,6 +183,20 @@ impl Server {
             .register_controller(
                 Operation::StartGame,
                 Box::new(StartController::new(
+                    player_service.clone(),
+                    game_service.clone(),
+                )),
+            )
+            .register_controller(
+                Operation::SetTile,
+                Box::new(SetTileController::new(
+                    player_service.clone(),
+                    game_service.clone(),
+                )),
+            )
+            .register_controller(
+                Operation::GetNewCard,
+                Box::new(GetNewCardController::new(
                     player_service.clone(),
                     game_service.clone(),
                 )),

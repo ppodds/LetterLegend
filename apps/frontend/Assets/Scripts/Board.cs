@@ -26,15 +26,22 @@ public class Board : MonoBehaviour
         _handField = HandField.GetInstance();
     }
 
-    private void MouseReleased(Vector2 position)
+    private async void MouseReleased(Vector2 position)
     {
-        foreach (var tempBlock in _blocks)
+        for (var i = 0; i < _blocks.Count; i++)
         {
+            var tempBlock = _blocks[i];
             if (tempBlock.GetComponent<Block>().Contains(position) && _handField.GetSelectBlock())
             {
-                tempBlock.GetComponent<Block>().SetText(_handField.GetText());
-                _handField.DeleteSelectObject();
-                return;
+                uint x = (uint)i % 26;
+                uint y = (uint)i / 26;
+                var res = await GameManager.Instance.GameTcpClient.SetTile(x, y, (uint)_handField.GetIndex());
+                if (res)
+                {
+                    tempBlock.GetComponent<Block>().SetText(_handField.GetText());
+                    _handField.DeleteSelectObject();
+                    return;
+                }
             }
         }
 

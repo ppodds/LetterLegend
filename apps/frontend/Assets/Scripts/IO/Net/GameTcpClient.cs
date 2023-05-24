@@ -9,6 +9,7 @@ using Google.Protobuf;
 using Protos.Control;
 using Protos.Game;
 using Protos.Lobby;
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace IO.Net
@@ -37,7 +38,7 @@ namespace IO.Net
             };
             var stream = new MemoryStream();
             req.WriteTo(stream);
-                
+
             var res = ConnectResponse.Parser.ParseFrom(await Rpc(Operation.Connect, stream.ToArray()));
             if (!res.Success)
             {
@@ -52,16 +53,17 @@ namespace IO.Net
             {
                 throw new Exception("get lobby list fail");
             }
+
             return res.LobbyInfos.LobbyInfos_.ToList();
         }
-        
+
         public async Task<Lobby> CreateLobby(uint maxPlayers)
         {
             var req = new CreateRequest()
             {
                 MaxPlayers = maxPlayers
             };
-            
+
             var stream = new MemoryStream();
             req.WriteTo(stream);
             var res = CreateResponse.Parser.ParseFrom(await Rpc(Operation.CreateLobby, stream.ToArray()));
@@ -72,17 +74,17 @@ namespace IO.Net
 
             return res.Lobby;
         }
-        
+
         public async Task<Lobby> JoinLobby(uint lobbyId)
         {
             var req = new JoinRequest()
             {
                 LobbyId = lobbyId
             };
-            
+
             var stream = new MemoryStream();
             req.WriteTo(stream);
-            
+
             var res = JoinResponse.Parser.ParseFrom(await Rpc(Operation.JoinLobby, stream.ToArray()));
             if (!res.Success)
             {
@@ -91,7 +93,7 @@ namespace IO.Net
 
             return res.Lobby;
         }
-        
+
         public async Task QuitLobby()
         {
             var res = QuitResponse.Parser.ParseFrom(await Rpc(Operation.QuitLobby));
@@ -108,9 +110,10 @@ namespace IO.Net
             {
                 throw new Exception("Set Ready failed");
             }
+
             return true;
         }
-        
+
         public async Task<Protos.Game.Board> Start()
         {
             var res = StartResponse.Parser.ParseFrom(await Rpc(Operation.StartGame));
@@ -118,9 +121,60 @@ namespace IO.Net
             {
                 throw new Exception("Someone is not Ready");
             }
+
             return res.Board;
         }
-        
+
+        public async Task<bool> SetTile(uint x, uint y, uint cardIndex)
+        {
+            var req = new SetTileRequest()
+            {
+                X = x,
+                Y = y,
+                CardIndex = cardIndex
+            };
+
+            var stream = new MemoryStream();
+            req.WriteTo(stream);
+
+            var res = SetTileResponse.Parser.ParseFrom(await Rpc(Operation.SetTile, stream.ToArray()));
+            if (!res.Success)
+            {
+                throw new Exception("set tile failed");
+            }
+
+            return res.Success;
+        }
+
+        public async Task<List<Card>> GetNewCard()
+        {
+            var res = GetNewCardResponse.Parser.ParseFrom(await Rpc(Operation.GetNewCard));
+            if (!res.Success)
+            {
+                throw new Exception("get new card failed");
+            }
+
+            return res.Cards.ToList();
+        }
+
+        public async Task FinishTurn()
+        {
+            var res = FinishTurnResponse.Parser.ParseFrom(await Rpc(Operation.FinishTurn));
+            if (!res.Success)
+            {
+                throw new Exception("finish turn failed");
+            }
+        }
+
+        public async Task HeartBeat()
+        {
+            var res = HeartbeatResponse.Parser.ParseFrom(await Rpc(Operation.Heartbeat));
+            if (!res.Success)
+            {
+                throw new Exception("heart beat failed");
+            }
+        }
+
         public Task Reconnect()
         {
             throw new NotImplementedException();
@@ -133,9 +187,10 @@ namespace IO.Net
             {
                 throw new Exception("disconnect failed");
             }
+
             _client.Close();
         }
-        
+
         private async Task<byte[]> Rpc(Operation operation, bool readResponse = true)
         {
             return await Rpc(operation, Array.Empty<byte>(), readResponse);

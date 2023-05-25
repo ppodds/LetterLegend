@@ -39,6 +39,16 @@ impl GameService {
         if player != lobby.leader {
             return Err("Only leader can start game".into());
         }
+        let mut check = true;
+        for player in lobby.get_players() {
+            if !player.get_ready() {
+                check = false;
+                break;
+            }
+        }
+        if !check {
+            return Err("Not all players are ready".into());
+        }
         let game = {
             let mut next_id = self.next_game_id.lock().unwrap();
             let game = Arc::new(Game::new(
@@ -237,6 +247,16 @@ mod tests {
         let player = Arc::new(Player::new(1, "test2".to_string()));
         lobby.add_player(player.clone())?;
         assert!(game_service.start_game(player, lobby).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn start_game_with_players_not_ready_should_return_error(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new();
+        let leader = Arc::new(Player::new(0, "test".to_string()));
+        let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
+        assert!(game_service.start_game(leader, lobby).is_err());
         Ok(())
     }
 

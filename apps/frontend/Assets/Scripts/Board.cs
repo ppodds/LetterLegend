@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 public class Board : MonoBehaviour
 {
@@ -33,9 +35,14 @@ public class Board : MonoBehaviour
             var tempBlock = _blocks[i];
             if (tempBlock.GetComponent<Block>().Contains(position) && _handField.GetSelectBlock())
             {
+                var index = _handField.GetIndex();
+                if (index == null)
+                {
+                    throw new Exception("HandField GetIndex failed");
+                }
                 uint x = (uint)i % 26;
                 uint y = (uint)i / 26;
-                var res = await GameManager.Instance.GameTcpClient.SetTile(x, y, (uint)_handField.GetIndex());
+                var res = await GameManager.Instance.GameTcpClient.SetTile(x, y, index.Value);
                 if (res)
                 {
                     tempBlock.GetComponent<Block>().SetText(_handField.GetText());

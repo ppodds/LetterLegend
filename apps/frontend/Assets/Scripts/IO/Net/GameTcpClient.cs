@@ -153,7 +153,6 @@ namespace IO.Net
             {
                 throw new Exception("get new card failed");
             }
-
             return res.Cards.ToList();
         }
 

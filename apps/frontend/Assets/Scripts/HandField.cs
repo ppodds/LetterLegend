@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Linq;
+using UnityEngine;
 
 public class HandField : MonoBehaviour
 {
@@ -33,7 +34,7 @@ public class HandField : MonoBehaviour
                     currentPosition.y, 0f);
             _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
         }
-
+        
         ResetBlock();
         _mouseEventSystem.GetMouseClickedEvent().AddListener(MouseClicked);
         _mouseEventSystem.GetFirstClickedEvent().AddListener(FirstClicked);
@@ -50,10 +51,11 @@ public class HandField : MonoBehaviour
         var res = await GameManager.Instance.GameTcpClient.GetNewCard();
         for (var i = 0; i < res.Count; i++)
         {
+            //Debug.Log(res[i].ToString());
             if (_blockList[i])
             {
                 var block = _blockList[i].GetComponent<BlockUI>();
-                if (block) block.SetText(res[i].ToString());
+                if (block) block.SetText(res[i].Symbol);
             }
         }
     }
@@ -100,17 +102,17 @@ public class HandField : MonoBehaviour
         return false;
     }
 
-    public int GetIndex()
+    public uint? GetIndex()
     {
         if (_selectBlockUI != null)
         {
             for (var i = 0; i < _blockList.Length; i++)
             {
-                if (_blockList[i] && _blockList[i].GetComponent<BlockUI>() == _selectBlockUI) return i;
+                if (_blockList[i] && _blockList[i].GetComponent<BlockUI>() == _selectBlockUI) return (uint) i;
             }
         }
 
-        return -1;
+        return null;
     }
 
     public void DeleteSelectObject()

@@ -220,9 +220,9 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new();
         let leader = Arc::new(Player::new(0, "test".to_string()));
-        assert!(game_service
-            .start_game(leader.clone(), Arc::new(Lobby::new(0, 4, leader.clone())))
-            .is_ok());
+        let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
+        lobby.get_player(leader.id).unwrap().set_ready(true);
+        assert!(game_service.start_game(leader.clone(), lobby).is_ok());
         Ok(())
     }
 

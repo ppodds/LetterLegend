@@ -138,6 +138,10 @@ impl GameService {
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
+                if game_player == game.get_player_in_this_turn() {
+                    continue;
+                }
+
                 let board = game.get_board().clone();
                 tokio::spawn(async move {
                     let t = Some(crate::model::game::board::Board::from(
@@ -171,6 +175,10 @@ impl GameService {
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
+                if game_player == game.get_player_in_this_turn() {
+                    continue;
+                }
+
                 tokio::spawn(async move {
                     if let Err(e) = game_player
                         .player

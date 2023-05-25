@@ -55,6 +55,9 @@ impl GameService {
         };
         for game_player in game.get_players() {
             game_player.player.set_game(Some(game.clone()));
+            if game_player.player == player {
+                continue;
+            }
             #[cfg(not(test))]
             tokio::spawn(async move {
                 if let Err(e) = game_player

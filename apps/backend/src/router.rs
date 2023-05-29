@@ -1,5 +1,5 @@
 use crate::controller::controller::PrintableController;
-use crate::frame::{Request, Response};
+use crate::frame::{Request, ResponseData};
 use crate::operation::Operation;
 use std::collections::HashMap;
 use std::error::Error;
@@ -46,16 +46,16 @@ impl Router {
         &self,
         request: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn Error + Sync + Send>> {
+    ) -> Result<ResponseData, Box<dyn Error + Sync + Send>> {
         match self
             .controllers
             .read()
             .unwrap()
-            .get(&Operation::try_from(&request)?)
+            .get(&Operation::try_from(request.get_data().as_ref())?)
         {
             Some(controller) => match controller.handle_request(request, context) {
                 Ok(response) => Ok(response),
-                Err(err) => Ok(Response::Error(crate::model::error::error::Error {
+                Err(err) => Ok(ResponseData::Error(crate::model::error::error::Error {
                     message: err.to_string(),
                 })),
             },

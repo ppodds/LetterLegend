@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use crate::frame::Request;
 use crate::model::lobby::list::ListResponse;
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{RequestData, ResponseData},
     router::RequestContext,
     service::lobby_service::LobbyService,
 };
@@ -28,12 +29,12 @@ impl Controller for ListController {
         &self,
         req: Request,
         _: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        match req {
-            Request::ListLobby => req,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        match *req.get_data() {
+            RequestData::ListLobby => req,
             _ => panic!("invalid request"),
         };
-        Ok(Response::ListLobby(ListResponse {
+        Ok(ResponseData::ListLobby(ListResponse {
             success: true,
             lobby_infos: Some(crate::model::lobby::list::LobbyInfos::from(
                 self.lobby_service.get_lobbies(),

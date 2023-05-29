@@ -1,6 +1,6 @@
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{Request, RequestData, ResponseData},
     router::RequestContext,
 };
 
@@ -22,11 +22,11 @@ impl Controller for HeartbeatController {
         &self,
         req: Request,
         _: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        assert!(match req {
-            Request::Heartbeat => true,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        assert!(match *req.get_data() {
+            RequestData::Heartbeat => true,
             _ => false,
         });
-        Ok(Response::Heartbeat(HeartbeatResponse { success: true }))
+        Ok(ResponseData::Heartbeat(HeartbeatResponse { success: true }))
     }
 }

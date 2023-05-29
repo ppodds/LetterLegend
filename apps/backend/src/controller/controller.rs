@@ -1,5 +1,5 @@
 use crate::{
-    frame::{Request, Response},
+    frame::{Request, ResponseData},
     router::RequestContext,
 };
 use std::error::Error;
@@ -10,7 +10,7 @@ pub trait Controller {
         &self,
         req: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn Error + Send + Sync>>;
+    ) -> Result<ResponseData, Box<dyn Error + Send + Sync>>;
 }
 
 pub trait PrintableController: Controller + Debug + Send + Sync {}

@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use crate::frame::Request;
 use crate::model::lobby::join::JoinResponse;
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{RequestData, ResponseData},
     router::RequestContext,
     service::{lobby_service::LobbyService, player_service::PlayerService},
 };
@@ -32,9 +33,10 @@ impl Controller for JoinController {
         &self,
         req: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        let req = match req {
-            Request::JoinLobby(req) => req,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        let data = req.get_data();
+        let req = match data.as_ref() {
+            RequestData::JoinLobby(req) => req,
             _ => panic!("invalid request"),
         };
         let player = match self.player_service.get_player(context.client_id) {
@@ -47,7 +49,7 @@ impl Controller for JoinController {
         };
         self.lobby_service
             .add_player_to_lobby(player, lobby.clone())?;
-        Ok(Response::JoinLobby(JoinResponse {
+        Ok(ResponseData::JoinLobby(JoinResponse {
             success: true,
             lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby)),
         }))
@@ -75,10 +77,13 @@ mod tests {
         lobby_service.create_lobby(leader, 4)?;
         let controller = JoinController::new(player_service, lobby_service);
         let res = match controller.handle_request(
-            Request::JoinLobby(JoinRequest { lobby_id: 0 }),
+            Request::new(
+                0,
+                Arc::new(RequestData::JoinLobby(JoinRequest { lobby_id: 0 })),
+            ),
             RequestContext { client_id: 1 },
         )? {
-            Response::JoinLobby(res) => res,
+            ResponseData::JoinLobby(res) => res,
             _ => panic!("invalid response"),
         };
         assert_eq!(res.success, true);
@@ -100,7 +105,10 @@ mod tests {
         let controller = JoinController::new(player_service, lobby_service);
         assert!(controller
             .handle_request(
-                Request::JoinLobby(JoinRequest { lobby_id: 0 }),
+                Request::new(
+                    0,
+                    Arc::new(RequestData::JoinLobby(JoinRequest { lobby_id: 0 }))
+                ),
                 RequestContext { client_id: 1 },
             )
             .is_err());
@@ -119,7 +127,10 @@ mod tests {
         let controller = JoinController::new(player_service, lobby_service);
         assert!(controller
             .handle_request(
-                Request::JoinLobby(JoinRequest { lobby_id: 0 }),
+                Request::new(
+                    0,
+                    Arc::new(RequestData::JoinLobby(JoinRequest { lobby_id: 0 }))
+                ),
                 RequestContext { client_id: 0 },
             )
             .is_err());
@@ -136,7 +147,10 @@ mod tests {
         let controller = JoinController::new(player_service, Arc::new(LobbyService::new()));
         assert!(controller
             .handle_request(
-                Request::JoinLobby(JoinRequest { lobby_id: 0 }),
+                Request::new(
+                    0,
+                    Arc::new(RequestData::JoinLobby(JoinRequest { lobby_id: 0 }))
+                ),
                 RequestContext { client_id: 0 },
             )
             .is_err());

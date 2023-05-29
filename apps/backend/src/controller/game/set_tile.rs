@@ -1,9 +1,10 @@
+use crate::frame::Request;
 use crate::game::tile::Tile;
 use crate::model::game::set_tile::SetTileResponse;
 use crate::service::game_service::GameService;
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{RequestData, ResponseData},
     router::RequestContext,
     service::player_service::PlayerService,
 };
@@ -33,9 +34,10 @@ impl Controller for SetTileController {
         &self,
         req: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        let req = match req {
-            Request::SetTile(req) => req,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        let data = req.get_data();
+        let req = match data.as_ref() {
+            RequestData::SetTile(req) => req,
             _ => panic!("invalid request"),
         };
         let player = match self.player_service.get_player(context.client_id) {
@@ -73,7 +75,7 @@ impl Controller for SetTileController {
             req.x as usize,
             req.y as usize,
         );
-        Ok(Response::SetTile(SetTileResponse { success: true }))
+        Ok(ResponseData::SetTile(SetTileResponse { success: true }))
     }
 }
 
@@ -117,11 +119,14 @@ mod tests {
         let player_now = game.get_player_in_this_turn();
         assert!(controller
             .handle_request(
-                Request::SetTile(SetTileRequest {
-                    x: 1,
-                    y: 1,
-                    card_index: 1,
-                }),
+                Request::new(
+                    0,
+                    Arc::new(RequestData::SetTile(SetTileRequest {
+                        x: 1,
+                        y: 1,
+                        card_index: 1,
+                    }))
+                ),
                 RequestContext {
                     client_id: match player_now.player.id {
                         0 => 1,
@@ -154,11 +159,14 @@ mod tests {
         lobby_player.set_ready(true);
         assert!(controller
             .handle_request(
-                Request::SetTile(SetTileRequest {
-                    x: 27,
-                    y: 1,
-                    card_index: 1,
-                }),
+                Request::new(
+                    0,
+                    Arc::new(RequestData::SetTile(SetTileRequest {
+                        x: 27,
+                        y: 1,
+                        card_index: 1,
+                    }))
+                ),
                 RequestContext { client_id: 0 },
             )
             .is_err());

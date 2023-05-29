@@ -1,8 +1,9 @@
+use crate::frame::Request;
 use crate::model::game::get_new_card::GetNewCardResponse;
 use crate::service::game_service::GameService;
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{RequestData, ResponseData},
     router::RequestContext,
     service::player_service::PlayerService,
 };
@@ -33,9 +34,9 @@ impl Controller for GetNewCardController {
         &self,
         req: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        match req {
-            Request::GetNewCard => req,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        match *req.get_data() {
+            RequestData::GetNewCard => req,
             _ => panic!("invalid request"),
         };
         let player = match self.player_service.get_player(context.client_id) {
@@ -62,7 +63,7 @@ impl Controller for GetNewCardController {
             game,
             turn_player,
         )?;
-        Ok(Response::GetNewCard(GetNewCardResponse {
+        Ok(ResponseData::GetNewCard(GetNewCardResponse {
             success: true,
             cards: cards.iter().map(|char| Card::from(char)).collect(),
         }))
@@ -106,7 +107,7 @@ mod tests {
         let player_now = game.get_player_in_this_turn();
         assert!(controller
             .handle_request(
-                Request::GetNewCard,
+                Request::new(0, Arc::new(RequestData::GetNewCard)),
                 RequestContext {
                     client_id: match player_now.player.id {
                         0 => 1,
@@ -138,9 +139,15 @@ mod tests {
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
         controller.game_service.start_game(player, lobby)?;
-        controller.handle_request(Request::GetNewCard, RequestContext { client_id: 0 })?;
+        controller.handle_request(
+            Request::new(0, Arc::new(RequestData::GetNewCard)),
+            RequestContext { client_id: 0 },
+        )?;
         assert!(controller
-            .handle_request(Request::GetNewCard, RequestContext { client_id: 0 })
+            .handle_request(
+                Request::new(0, Arc::new(RequestData::GetNewCard)),
+                RequestContext { client_id: 0 }
+            )
             .is_err());
         Ok(())
     }

@@ -10,9 +10,11 @@ use crate::{
 };
 
 #[cfg(not(test))]
-use crate::frame::Response;
+use crate::frame::{Response, ResponseData};
 #[cfg(not(test))]
 use crate::model::lobby::broadcast::{LobbyBroadcast, LobbyEvent};
+#[cfg(not(test))]
+use crate::model::state::State;
 
 #[derive(Debug)]
 pub struct LobbyService {
@@ -66,10 +68,13 @@ impl LobbyService {
                 tokio::spawn(async move {
                     if let Err(e) = lobby_player
                         .player
-                        .send_message(Response::LobbyBroadcast(LobbyBroadcast {
-                            event: LobbyEvent::Join as i32,
-                            lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby.clone())),
-                        }))
+                        .send_message(Response::new(
+                            State::LobbyBroadcast as u32,
+                            Arc::new(ResponseData::LobbyBroadcast(LobbyBroadcast {
+                                event: LobbyEvent::Join as i32,
+                                lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby.clone())),
+                            })),
+                        ))
                         .await
                     {
                         eprintln!("Error sending lobby broadcast: {}", e);
@@ -106,13 +111,16 @@ impl LobbyService {
                 tokio::spawn(async move {
                     if let Err(e) = lobby_player
                         .player
-                        .send_message(Response::LobbyBroadcast(LobbyBroadcast {
-                            event: match is_lobby_destroy {
-                                true => LobbyEvent::Destroy as i32,
-                                false => LobbyEvent::Leave as i32,
-                            },
-                            lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby)),
-                        }))
+                        .send_message(Response::new(
+                            State::LobbyBroadcast as u32,
+                            Arc::new(ResponseData::LobbyBroadcast(LobbyBroadcast {
+                                event: match is_lobby_destroy {
+                                    true => LobbyEvent::Destroy as i32,
+                                    false => LobbyEvent::Leave as i32,
+                                },
+                                lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby)),
+                            })),
+                        ))
                         .await
                     {
                         eprintln!("Error sending lobby broadcast: {}", e);

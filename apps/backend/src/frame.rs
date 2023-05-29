@@ -4,15 +4,28 @@ use bytes::Buf;
 use prost::Message;
 
 use crate::{
-    model::control::connect::ConnectRequest, model::control::connect::ConnectResponse,
-    model::control::disconnect::DisconnectResponse, model::control::heartbeat::HeartbeatResponse,
-    model::game::broadcast::GameBroadcast, model::game::finish_turn::FinishTurnResponse,
-    model::game::get_new_card::GetNewCardResponse, model::game::set_tile::SetTileRequest,
-    model::game::set_tile::SetTileResponse, model::game::start::StartResponse,
-    model::lobby::broadcast::LobbyBroadcast, model::lobby::create::CreateRequest,
-    model::lobby::create::CreateResponse, model::lobby::join::JoinRequest,
-    model::lobby::join::JoinResponse, model::lobby::list::ListResponse,
-    model::lobby::quit::QuitResponse, model::lobby::ready::ReadyResponse, operation::Operation,
+    model::control::connect::ConnectRequest,
+    model::control::connect::ConnectResponse,
+    model::control::disconnect::DisconnectResponse,
+    model::control::heartbeat::HeartbeatResponse,
+    model::game::broadcast::GameBroadcast,
+    model::game::finish_turn::FinishTurnResponse,
+    model::game::get_new_card::GetNewCardResponse,
+    model::game::set_tile::SetTileRequest,
+    model::game::set_tile::SetTileResponse,
+    model::game::{
+        cancel::{CancelRequest, CancelResponse},
+        start::StartResponse,
+    },
+    model::lobby::broadcast::LobbyBroadcast,
+    model::lobby::create::CreateRequest,
+    model::lobby::create::CreateResponse,
+    model::lobby::join::JoinRequest,
+    model::lobby::join::JoinResponse,
+    model::lobby::list::ListResponse,
+    model::lobby::quit::QuitResponse,
+    model::lobby::ready::ReadyResponse,
+    operation::Operation,
 };
 use std::hash::{Hash, Hasher};
 
@@ -56,6 +69,7 @@ pub enum RequestData {
     SetTile(SetTileRequest),
     FinishTurn,
     GetNewCard,
+    Cancel(CancelRequest),
 }
 
 impl Hash for RequestData {
@@ -73,6 +87,7 @@ impl Hash for RequestData {
             RequestData::SetTile(_) => 9.hash(state),
             RequestData::FinishTurn => 10.hash(state),
             RequestData::GetNewCard => 11.hash(state),
+            RequestData::Cancel(_) => 12.hash(state),
         }
     }
 }
@@ -102,6 +117,7 @@ pub enum ResponseData {
     Error(crate::model::error::error::Error),
     Connect(ConnectResponse),
     Disconnect(DisconnectResponse),
+    Cancel(CancelResponse),
     Heartbeat(HeartbeatResponse),
     CreateLobby(CreateResponse),
     JoinLobby(JoinResponse),
@@ -147,6 +163,7 @@ impl Frame {
             Operation::SetTile => SetTileRequest::decode(payload).err(),
             Operation::FinishTurn => return Ok(()),
             Operation::GetNewCard => return Ok(()),
+            Operation::Cancel => CancelRequest::decode(payload).err(),
         };
         if e.is_some() {
             return Err(Error::ProtobufDecodeFailed(e.unwrap()));
@@ -170,6 +187,13 @@ impl Frame {
                 Ok(req) => Ok(Frame::Request(Request {
                     state,
                     data: Arc::new(RequestData::Connect(req)),
+                })),
+                Err(e) => Err(Error::ProtobufDecodeFailed(e)),
+            },
+            Operation::Cancel => match CancelRequest::decode(payload) {
+                Ok(req) => Ok(Frame::Request(Request {
+                    state,
+                    data: Arc::new(RequestData::Cancel(req)),
                 })),
                 Err(e) => Err(Error::ProtobufDecodeFailed(e)),
             },

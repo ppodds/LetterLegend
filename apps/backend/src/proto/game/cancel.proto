@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package game.cancel;
+option csharp_namespace = "Protos.Game";
+
+message CancelRequest {
+    uint32 x = 1;
+    uint32 y = 2;
+}
+
+message CancelResponse {
+    bool success = 1;
+}

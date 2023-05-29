@@ -187,6 +187,37 @@ impl GameService {
         }
     }
 
+    pub fn remove_selected_tile(&self, x: u32, y: u32, game: Arc<Game>) {
+        game.get_board().lock().unwrap().tiles[x as usize][y as usize] = None;
+        #[cfg(not(test))]
+        {
+            let board = game.get_board().clone();
+            for game_player in game.get_players() {
+                let game = game.clone();
+                let t = Some(crate::model::game::board::Board::from(
+                    &*board.lock().unwrap(),
+                ));
+                tokio::spawn(async move {
+                    if let Err(e) = game_player
+                        .player
+                        .send_message(Response::new(
+                            State::GameBroadcast as u32,
+                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                                event: GameEvent::PlaceTile as i32,
+                                board: t,
+                                players: Some(crate::model::player::players::Players::from(
+                                    &game.get_players(),
+                                )),
+                            })),
+                        ))
+                        .await
+                    {
+                        eprintln!("Error sending game broadcast: {}", e);
+                    }
+                });
+            }
+        }
+    }
     pub fn shuffle(
         &self,
         #[cfg(not(test))] game: Arc<Game>,

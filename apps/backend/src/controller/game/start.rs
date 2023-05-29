@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use crate::frame::Request;
 use crate::model::game::start::StartResponse;
 use crate::service::game_service::GameService;
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{RequestData, ResponseData},
     router::RequestContext,
     service::player_service::PlayerService,
 };
@@ -33,9 +34,9 @@ impl Controller for StartController {
         &self,
         req: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        match req {
-            Request::StartGame => req,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        match *req.get_data() {
+            RequestData::StartGame => req,
             _ => panic!("invalid request"),
         };
 
@@ -48,7 +49,7 @@ impl Controller for StartController {
             None => return Err("Player not in lobby".into()),
         };
         let game = self.game_service.start_game(player, lobby)?;
-        Ok(Response::StartGame(StartResponse {
+        Ok(ResponseData::StartGame(StartResponse {
             success: true,
             board: Some(crate::model::game::board::Board::from(
                 &*game.get_board().lock().unwrap(),
@@ -82,11 +83,13 @@ mod tests {
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
-        let res =
-            match controller.handle_request(Request::StartGame, RequestContext { client_id: 0 })? {
-                Response::StartGame(res) => res,
-                _ => panic!("invalid response"),
-            };
+        let res = match controller.handle_request(
+            Request::new(0, Arc::new(RequestData::StartGame)),
+            RequestContext { client_id: 0 },
+        )? {
+            ResponseData::StartGame(res) => res,
+            _ => panic!("invalid response"),
+        };
         assert!(res.success);
         Ok(())
     }

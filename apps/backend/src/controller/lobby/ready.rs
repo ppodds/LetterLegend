@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use crate::frame::Request;
 use crate::model::lobby::ready::ReadyResponse;
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{RequestData, ResponseData},
     router::RequestContext,
     service::player_service::PlayerService,
 };
@@ -28,9 +29,9 @@ impl Controller for ReadyController {
         &self,
         req: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        match req {
-            Request::Ready => req,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        match *req.get_data() {
+            RequestData::Ready => req,
             _ => panic!("invalid request"),
         };
 
@@ -45,7 +46,7 @@ impl Controller for ReadyController {
                     {
                         lobby_player.set_ready(!lobby_player.get_ready());
                     }
-                    Ok(Response::Ready(ReadyResponse { success: true }))
+                    Ok(ResponseData::Ready(ReadyResponse { success: true }))
                 }
                 None => panic!("Player in lobby but LobbyPlayer not found"),
             },
@@ -74,7 +75,10 @@ mod tests {
             .player_service
             .add_player(0, String::from("test"));
         let lobby = lobby_service.create_lobby(leader, 4)?;
-        controller.handle_request(Request::Ready, RequestContext { client_id: 0 })?;
+        controller.handle_request(
+            Request::new(0, Arc::new(RequestData::Ready)),
+            RequestContext { client_id: 0 },
+        )?;
         assert!(lobby.get_player(0).unwrap().get_ready());
         Ok(())
     }
@@ -92,7 +96,10 @@ mod tests {
             .add_player(0, String::from("test"));
         let lobby = lobby_service.create_lobby(leader, 4)?;
         lobby.get_player(0).unwrap().set_ready(true);
-        controller.handle_request(Request::Ready, RequestContext { client_id: 0 })?;
+        controller.handle_request(
+            Request::new(0, Arc::new(RequestData::Ready)),
+            RequestContext { client_id: 0 },
+        )?;
         assert!(!lobby.get_player(0).unwrap().get_ready());
         Ok(())
     }

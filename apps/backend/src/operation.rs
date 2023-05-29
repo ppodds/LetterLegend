@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::frame::Request;
+use crate::frame::RequestData;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Operation {
@@ -39,22 +39,22 @@ impl TryFrom<u8> for Operation {
     }
 }
 
-impl TryFrom<&Request> for Operation {
+impl TryFrom<&RequestData> for Operation {
     type Error = Box<dyn Error + Send + Sync>;
-    fn try_from(value: &Request) -> Result<Self, Self::Error> {
+    fn try_from(value: &RequestData) -> Result<Self, Self::Error> {
         match value {
-            Request::Connect(_) => Ok(Operation::Connect),
-            Request::Disconnect => Ok(Operation::Disconnect),
-            Request::Heartbeat => Ok(Operation::Heartbeat),
-            Request::CreateLobby(_) => Ok(Operation::CreateLobby),
-            Request::JoinLobby(_) => Ok(Operation::JoinLobby),
-            Request::QuitLobby => Ok(Operation::QuitLobby),
-            Request::ListLobby => Ok(Operation::ListLobby),
-            Request::Ready => Ok(Operation::Ready),
-            Request::StartGame => Ok(Operation::StartGame),
-            Request::SetTile(_) => Ok(Operation::SetTile),
-            Request::FinishTurn => Ok(Operation::FinishTurn),
-            Request::GetNewCard => Ok(Operation::GetNewCard),
+            RequestData::Connect(_) => Ok(Operation::Connect),
+            RequestData::Disconnect => Ok(Operation::Disconnect),
+            RequestData::Heartbeat => Ok(Operation::Heartbeat),
+            RequestData::CreateLobby(_) => Ok(Operation::CreateLobby),
+            RequestData::JoinLobby(_) => Ok(Operation::JoinLobby),
+            RequestData::QuitLobby => Ok(Operation::QuitLobby),
+            RequestData::ListLobby => Ok(Operation::ListLobby),
+            RequestData::Ready => Ok(Operation::Ready),
+            RequestData::StartGame => Ok(Operation::StartGame),
+            RequestData::SetTile(_) => Ok(Operation::SetTile),
+            RequestData::FinishTurn => Ok(Operation::FinishTurn),
+            RequestData::GetNewCard => Ok(Operation::GetNewCard),
             // _ => Err("invalid request".into()),
         }
     }

@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use crate::frame::Request;
 use crate::model::lobby::create::CreateResponse;
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{RequestData, ResponseData},
     router::RequestContext,
     service::{lobby_service::LobbyService, player_service::PlayerService},
 };
@@ -32,9 +33,10 @@ impl Controller for CreateController {
         &self,
         req: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        let req = match req {
-            Request::CreateLobby(req) => req,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        let data = req.get_data();
+        let req = match data.as_ref() {
+            RequestData::CreateLobby(req) => req,
             _ => panic!("invalid request"),
         };
         let leader = match self.player_service.get_player(context.client_id) {
@@ -43,7 +45,7 @@ impl Controller for CreateController {
         };
         let lobby = self.lobby_service.create_lobby(leader, req.max_players)?;
 
-        Ok(Response::CreateLobby(CreateResponse {
+        Ok(ResponseData::CreateLobby(CreateResponse {
             success: true,
             lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby)),
         }))
@@ -66,10 +68,13 @@ mod tests {
         player_service.add_player(0, String::from("test"));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
         let res = match controller.handle_request(
-            Request::CreateLobby(CreateRequest { max_players: 4 }),
+            Request::new(
+                0,
+                Arc::new(RequestData::CreateLobby(CreateRequest { max_players: 4 })),
+            ),
             RequestContext { client_id: 0 },
         )? {
-            Response::CreateLobby(res) => res,
+            ResponseData::CreateLobby(res) => res,
             _ => panic!("invalid response"),
         };
         assert_eq!(res.success, true);
@@ -88,13 +93,19 @@ mod tests {
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
         assert!(controller
             .handle_request(
-                Request::CreateLobby(CreateRequest { max_players: 3 }),
+                Request::new(
+                    0,
+                    Arc::new(RequestData::CreateLobby(CreateRequest { max_players: 3 }))
+                ),
                 RequestContext { client_id: 0 },
             )
             .is_err());
         assert!(controller
             .handle_request(
-                Request::CreateLobby(CreateRequest { max_players: 9 }),
+                Request::new(
+                    0,
+                    Arc::new(RequestData::CreateLobby(CreateRequest { max_players: 9 }))
+                ),
                 RequestContext { client_id: 0 },
             )
             .is_err());
@@ -111,7 +122,10 @@ mod tests {
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
         assert!(controller
             .handle_request(
-                Request::CreateLobby(CreateRequest { max_players: 4 }),
+                Request::new(
+                    0,
+                    Arc::new(RequestData::CreateLobby(CreateRequest { max_players: 4 }))
+                ),
                 RequestContext { client_id: 0 },
             )
             .is_err());
@@ -128,10 +142,13 @@ mod tests {
         let player = player_service.add_player(0, String::from("test"));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
         let res = match controller.handle_request(
-            Request::CreateLobby(CreateRequest { max_players: 4 }),
+            Request::new(
+                0,
+                Arc::new(RequestData::CreateLobby(CreateRequest { max_players: 4 })),
+            ),
             RequestContext { client_id: 0 },
         )? {
-            Response::CreateLobby(res) => res,
+            ResponseData::CreateLobby(res) => res,
             _ => panic!("invalid response"),
         };
         assert_eq!(

@@ -11,11 +11,13 @@ use crate::{
 };
 
 #[cfg(not(test))]
-use crate::frame::Response;
+use crate::frame::{Response, ResponseData};
 #[cfg(not(test))]
-use crate::model::game::broadcast::{GameBroadcast, GameEvent};
+use crate::model::game::broadcast::GameEvent;
 #[cfg(not(test))]
 use crate::model::lobby::broadcast::{LobbyBroadcast, LobbyEvent};
+#[cfg(not(test))]
+use crate::model::{game::broadcast::GameBroadcast, state::State};
 
 #[derive(Debug)]
 pub struct GameService {
@@ -72,10 +74,13 @@ impl GameService {
             tokio::spawn(async move {
                 if let Err(e) = game_player
                     .player
-                    .send_message(Response::LobbyBroadcast(LobbyBroadcast {
-                        event: LobbyEvent::Start as i32,
-                        lobby: None,
-                    }))
+                    .send_message(Response::new(
+                        State::LobbyBroadcast as u32,
+                        Arc::new(ResponseData::LobbyBroadcast(LobbyBroadcast {
+                            event: LobbyEvent::Start as i32,
+                            lobby: None,
+                        })),
+                    ))
                     .await
                 {
                     eprintln!("Error sending lobby broadcast: {}", e);
@@ -109,13 +114,16 @@ impl GameService {
                 tokio::spawn(async move {
                     if let Err(e) = game_player
                         .player
-                        .send_message(Response::GameBroadcast(GameBroadcast {
-                            event: GameEvent::Leave as i32,
-                            board: None,
-                            players: Some(crate::model::player::players::Players::from(
-                                &game.get_players(),
-                            )),
-                        }))
+                        .send_message(Response::new(
+                            State::GameBroadcast as u32,
+                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                                event: GameEvent::Leave as i32,
+                                board: None,
+                                players: Some(crate::model::player::players::Players::from(
+                                    &game.get_players(),
+                                )),
+                            })),
+                        ))
                         .await
                     {
                         eprintln!("Error sending game broadcast: {}", e);
@@ -162,11 +170,14 @@ impl GameService {
                     ));
                     if let Err(e) = game_player
                         .player
-                        .send_message(Response::GameBroadcast(GameBroadcast {
-                            event: GameEvent::PlaceTile as i32,
-                            board: t,
-                            players: None,
-                        }))
+                        .send_message(Response::new(
+                            State::GameBroadcast as u32,
+                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                                event: GameEvent::PlaceTile as i32,
+                                board: t,
+                                players: None,
+                            })),
+                        ))
                         .await
                     {
                         eprintln!("Error sending game broadcast: {}", e);
@@ -195,11 +206,14 @@ impl GameService {
                 tokio::spawn(async move {
                     if let Err(e) = game_player
                         .player
-                        .send_message(Response::GameBroadcast(GameBroadcast {
-                            event: GameEvent::Shuffle as i32,
-                            board: None,
-                            players: None,
-                        }))
+                        .send_message(Response::new(
+                            State::GameBroadcast as u32,
+                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                                event: GameEvent::Shuffle as i32,
+                                board: None,
+                                players: None,
+                            })),
+                        ))
                         .await
                     {
                         eprintln!("Error sending game broadcast: {}", e);

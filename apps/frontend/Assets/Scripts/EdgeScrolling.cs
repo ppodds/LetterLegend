@@ -12,7 +12,7 @@ public class EdgeScrolling : MonoBehaviour
 
     private void Awake()
     {
-        _camera = Camera.main;
+        _camera = GetComponent<Camera>();
         _scrollSpeed = 15f;
         _scrollZone = 20f;
         _boardMin = board.GetBoardMin();

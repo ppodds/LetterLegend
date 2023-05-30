@@ -6,6 +6,8 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 using IO.Net;
+
+
 public class StartPanel : MonoBehaviour
 {
     public GameObject startPanel;
@@ -42,8 +44,10 @@ public class StartPanel : MonoBehaviour
         var task = GameManager.Instance.ConnectToServer();
         if (task)
         {
+            GameManager.Instance.GameTcpClient.TransitionTo(new StateConnect(GameManager.Instance.GameTcpClient));
             await GameManager.Instance.GameTcpClient.ConnectAsync(_playerName);
         }
+        
         gameObject.SetActive(false);
         lobbyPanel.SetActive(true);
     }

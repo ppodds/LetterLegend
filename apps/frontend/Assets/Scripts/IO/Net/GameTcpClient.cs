@@ -9,6 +9,7 @@ using Google.Protobuf;
 using Protos.Control;
 using Protos.Game;
 using Protos.Lobby;
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace IO.Net
@@ -17,16 +18,51 @@ namespace IO.Net
     {
         private readonly string _host;
         private readonly int _port;
-
         private readonly TcpClient _client;
-
+        private readonly Task _thread;
         public GameTcpClient(string host, int port)
         {
             _host = host;
             _port = port;
-
             _client = new TcpClient();
+            State = new StateBroadcast(this);
+            Task.Run(async () =>
+            {
+                var stream = _client.GetStream();
+                while (true)
+                {
+                    var buf = new byte[4];
+                    var n = await stream.ReadAsync(buf);
+                    if (n != buf.Length)
+                        throw new WrongProtocolException();
+                    var resLength = BitConverter.ToUInt32(buf);
+                    if (resLength == 0)
+                        return Array.Empty<byte>();
+                    buf = new byte[resLength];
+                    n = await stream.ReadAsync(buf);
+                    if (n != buf.Length)
+                        throw new WrongProtocolException();
+                    await State.ExecAsync(buf);
+                }
+            });
         }
+        
+        public State State { get; private set; }
+        
+        public void TransitionTo(State state)
+        {
+            State = state;
+        }
+
+        // public void Handle()
+        // {
+        //     if (State == null)
+        //     {
+        //         State = new StateBroadcast();
+        //         State.Client = this;
+        //     }
+        //     State.Handle();
+        // }
 
         public async Task ConnectAsync(string name)
         {
@@ -37,12 +73,8 @@ namespace IO.Net
             };
             var stream = new MemoryStream();
             req.WriteTo(stream);
-                
-            var res = ConnectResponse.Parser.ParseFrom(await Rpc(Operation.Connect, stream.ToArray()));
-            if (!res.Success)
-            {
-                throw new Exception("create player failed");
-            }
+            await Rpc(Operation.Connect, stream.ToArray());
+            
         }
 
         public async Task<List<LobbyInfo>> GetLobbies()
@@ -53,6 +85,17 @@ namespace IO.Net
                 throw new Exception("get lobby list fail");
             }
             return res.LobbyInfos.LobbyInfos_.ToList();
+        }
+
+        public async Task<byte[]> ReadBroadcast(CancellationToken token = default)
+        {
+            if (token.IsCancellationRequested)
+            {
+                Debug.Log("terminate the loop");
+                throw new OperationCanceledException(token);  
+            }
+            var result = await ReadRpcResponse(token);
+            return result;
         }
         
         public async Task<Lobby> CreateLobby(uint maxPlayers)
@@ -82,7 +125,6 @@ namespace IO.Net
             
             var stream = new MemoryStream();
             req.WriteTo(stream);
-            
             var res = JoinResponse.Parser.ParseFrom(await Rpc(Operation.JoinLobby, stream.ToArray()));
             if (!res.Success)
             {
@@ -101,16 +143,6 @@ namespace IO.Net
             }
         }
 
-        public async Task<bool> SetReady()
-        {
-            var res = ReadyResponse.Parser.ParseFrom(await Rpc(Operation.Ready));
-            if (!res.Success)
-            {
-                throw new Exception("Set Ready failed");
-            }
-            return true;
-        }
-        
         public async Task<Protos.Game.Board> Start()
         {
             var res = StartResponse.Parser.ParseFrom(await Rpc(Operation.StartGame));
@@ -136,12 +168,12 @@ namespace IO.Net
             _client.Close();
         }
         
-        private async Task<byte[]> Rpc(Operation operation, bool readResponse = true)
+        public async Task<byte[]> Rpc(Operation operation, bool readResponse = true)
         {
             return await Rpc(operation, Array.Empty<byte>(), readResponse);
         }
 
-        private async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true,
+        public async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true,
             CancellationToken token = default)
         {
             await RpcCall(operation, data);
@@ -158,12 +190,15 @@ namespace IO.Net
             await outputStream.WriteAsync(data);
             await stream.WriteAsync(outputStream.ToArray());
         }
-
+        
         private async Task<byte[]> ReadRpcResponse(CancellationToken token = default)
         {
             var stream = _client.GetStream();
             var buf = new byte[4];
+            token.ThrowIfCancellationRequested();
+            Debug.Log("stuck before readasync");
             var n = await stream.ReadAsync(buf, token);
+            Debug.Log("after readasync");
             token.ThrowIfCancellationRequested();
             if (n != buf.Length)
                 throw new WrongProtocolException();

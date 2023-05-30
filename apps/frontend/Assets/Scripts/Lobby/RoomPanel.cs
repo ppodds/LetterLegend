@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Protos.Lobby;
@@ -24,32 +25,67 @@ public class RoomPanel : MonoBehaviour
     {
         foreach (var player in Lobby.Players)
         {
-            Debug.Log(player.Id + player.Name);
             var t = Instantiate(playerItem, playerListTransform).GetComponent<PlayerItem>();
             t.SetText(Lobby, player);
         }
     }
-    
-    public async void SetReady()
+
+    private void OnEnable()
     {
-        var res = await GameManager.Instance.GameTcpClient.SetReady();
-        if (res)
-        {
-            readyButton.image.color = Color.gray;
-        }
-        else
-        {
-            Debug.Log("Set ready failed");
-        }
+        if(Lobby!=null)
+            UpdateRoom();
+        
+        // GameManager.Instance.GameTcpClient.Handle();
+        // var inLobby = true;
+        // while (inLobby)
+        // {
+        //     var res = await GameManager.Instance.GameTcpClient.WaitLobbyBroadcast();
+        //     if(res == null) continue;
+        //     switch (res.Event)
+        //     {
+        //         case LobbyEvent.Join:
+        //             ClearList();
+        //             Lobby = res.Lobby;
+        //             UpdateRoom();
+        //             break;
+        //         case LobbyEvent.Leave:
+        //             ClearList();
+        //             Lobby = res.Lobby;
+        //             UpdateRoom();
+        //             break;
+        //         case LobbyEvent.Destroy:
+        //             lobbyPanel.SetActive(true);
+        //             gameObject.SetActive(false);
+        //             inLobby = false;
+        //             break;
+        //         case LobbyEvent.Start:
+        //             GameManager.Instance.StartGame();
+        //             inLobby = false;
+        //             break;
+        //         default:
+        //             throw new ArgumentOutOfRangeException();
+        //     }
+        // }
+    }
+
+    public void SetReady()
+    {
+        ((StateBroadcast)GameManager.Instance.GameTcpClient.State).SwitchToResponse();
+        // GameManager.Instance.GameTcpClient.Handle();
     }
     
     public void StartGame()
     {
         GameManager.Instance.StartGame();
     }
+
+    public void ClearList()
+    {
+        for (var i = 0; i < playerListTransform.childCount; i++) Destroy(playerListTransform.GetChild(i).gameObject);
+    }
     
     private void OnDisable()
     {
-        for (var i = 0; i < playerListTransform.childCount; i++) Destroy(playerListTransform.GetChild(i).gameObject);
+        ClearList();
     }
 }

@@ -67,10 +67,11 @@ impl Controller for SetTileController {
             return Err("Tile out of board".into());
         }
         self.game_service.place_tile_on_board(
-            game,
+            game.clone(),
             Tile {
                 char: symbol,
                 owner: player,
+                turn: game.get_turns(),
             },
             req.x as usize,
             req.y as usize,

@@ -70,6 +70,7 @@ public class GameManager : MonoBehaviour
     
     private async void HeartBeat()
     {
-        await GameTcpClient.HeartBeat();
+        if(GameTcpClient!=null)
+            await GameTcpClient.HeartBeat();
     }
 }

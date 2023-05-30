@@ -44,7 +44,6 @@ public class StartPanel : MonoBehaviour
         var task = GameManager.Instance.ConnectToServer();
         if (task)
         {
-            GameManager.Instance.GameTcpClient.TransitionTo(new StateConnect(GameManager.Instance.GameTcpClient));
             await GameManager.Instance.GameTcpClient.ConnectAsync(_playerName);
         }
         

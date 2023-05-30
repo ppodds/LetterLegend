@@ -25,26 +25,6 @@ namespace IO.Net
             _host = host;
             _port = port;
             _client = new TcpClient();
-            State = new StateBroadcast(this);
-            Task.Run(async () =>
-            {
-                var stream = _client.GetStream();
-                while (true)
-                {
-                    var buf = new byte[4];
-                    var n = await stream.ReadAsync(buf);
-                    if (n != buf.Length)
-                        throw new WrongProtocolException();
-                    var resLength = BitConverter.ToUInt32(buf);
-                    if (resLength == 0)
-                        return Array.Empty<byte>();
-                    buf = new byte[resLength];
-                    n = await stream.ReadAsync(buf);
-                    if (n != buf.Length)
-                        throw new WrongProtocolException();
-                    await State.ExecAsync(buf);
-                }
-            });
         }
         
         public State State { get; private set; }
@@ -53,16 +33,6 @@ namespace IO.Net
         {
             State = state;
         }
-
-        // public void Handle()
-        // {
-        //     if (State == null)
-        //     {
-        //         State = new StateBroadcast();
-        //         State.Client = this;
-        //     }
-        //     State.Handle();
-        // }
 
         public async Task ConnectAsync(string name)
         {
@@ -243,6 +213,7 @@ namespace IO.Net
             var stream = _client.GetStream();
             var outputStream = new MemoryStream();
             await outputStream.WriteAsync(new byte[] { (byte)operation, 0, 0, 0 });
+            await outputStream.WriteAsync(new byte[] { 0, 0, 0, 0 });
             await outputStream.WriteAsync(BitConverter.GetBytes(data.Length));
             await outputStream.WriteAsync(data);
             await stream.WriteAsync(outputStream.ToArray());
@@ -251,17 +222,24 @@ namespace IO.Net
         private async Task<byte[]> ReadRpcResponse(CancellationToken token = default)
         {
             var stream = _client.GetStream();
+            // read state number
             var buf = new byte[4];
             token.ThrowIfCancellationRequested();
-            Debug.Log("stuck before readasync");
+            var state = await stream.ReadAsync(buf, token);
+            token.ThrowIfCancellationRequested();
+            if (state != buf.Length)
+                throw new WrongProtocolException();
+            // read content length
+            buf = new byte[4];
+            token.ThrowIfCancellationRequested();
             var n = await stream.ReadAsync(buf, token);
-            Debug.Log("after readasync");
             token.ThrowIfCancellationRequested();
             if (n != buf.Length)
                 throw new WrongProtocolException();
             var resLength = BitConverter.ToUInt32(buf);
             if (resLength == 0)
                 return Array.Empty<byte>();
+            // read content
             buf = new byte[resLength];
             n = await stream.ReadAsync(buf, token);
             token.ThrowIfCancellationRequested();

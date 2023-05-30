@@ -68,10 +68,10 @@ public class RoomPanel : MonoBehaviour
         // }
     }
 
-    public void SetReady()
+    public async void SetReady()
     {
-        ((StateBroadcast)GameManager.Instance.GameTcpClient.State).SwitchToResponse();
-        // GameManager.Instance.GameTcpClient.Handle();
+        await GameManager.Instance.GameTcpClient.SetReady();
+        readyButton.GetComponent<Image>().color = Color.gray;
     }
     
     public void StartGame()

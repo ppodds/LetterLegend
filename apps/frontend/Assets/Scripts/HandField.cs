@@ -1,5 +1,5 @@
-﻿using UnityEngine;
-using Random = UnityEngine.Random;
+﻿using System.Linq;
+using UnityEngine;
 
 public class HandField : MonoBehaviour
 {
@@ -21,14 +21,17 @@ public class HandField : MonoBehaviour
 
         _handField = this;
         var currentPosition = handField.GetComponent<RectTransform>().position;
-        var widthRef = (handField.GetComponent<RectTransform>().rect.width - blockUI.GetComponent<RectTransform>().rect.width) / 2;
+        var widthRef = (handField.GetComponent<RectTransform>().rect.width -
+                        blockUI.GetComponent<RectTransform>().rect.width) / 2;
         _blockList = new GameObject[8];
         _selectBlockUI = null;
         _selectBlockPosition = Vector3.zero;
         _mouseEventSystem = MouseEventSystem.GetInstance();
         for (var i = 0; i < _blockList.Length; i++)
         {
-            var bottomCenter = new Vector3(currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i, currentPosition.y, 0f);
+            var bottomCenter =
+                new Vector3(currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
+                    currentPosition.y, 0f);
             _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
         }
 
@@ -43,14 +46,16 @@ public class HandField : MonoBehaviour
         return _handField;
     }
 
-    private void ResetBlock()
+    private async void ResetBlock()
     {
-        for (var i = 0; i < _blockList.Length; i++)
+        var res = await GameManager.Instance.GameTcpClient.GetNewCard();
+        for (var i = 0; i < res.Count; i++)
         {
+            //Debug.Log(res[i].ToString());
             if (_blockList[i])
             {
                 var block = _blockList[i].GetComponent<BlockUI>();
-                if (block) block.SetText(char.ToString((char)(Random.Range(0, 26) + 'A')));
+                if (block) block.SetText(res[i].Symbol);
             }
         }
     }
@@ -86,15 +91,31 @@ public class HandField : MonoBehaviour
 
     public void ResetPosition()
     {
-        _selectBlockUI.transform.position = _selectBlockPosition;
-        _selectBlockUI = null;
-        _selectBlockPosition = Vector3.zero;
+        if (_selectBlockUI)
+        {
+            _selectBlockUI.transform.position = _selectBlockPosition;
+            _selectBlockUI = null;
+            _selectBlockPosition = Vector3.zero;
+        }
     }
 
     public bool GetSelectBlock()
     {
         if (_selectBlockUI != null) return true;
         return false;
+    }
+
+    public uint? GetIndex()
+    {
+        if (_selectBlockUI != null)
+        {
+            for (var i = 0; i < _blockList.Length; i++)
+            {
+                if (_blockList[i] && _blockList[i].GetComponent<BlockUI>() == _selectBlockUI) return (uint)i;
+            }
+        }
+
+        return null;
     }
 
     public void DeleteSelectObject()
@@ -119,19 +140,23 @@ public class HandField : MonoBehaviour
 
     public string GetText()
     {
-        if (GetSelectBlock()) return _selectBlockUI.GetText();
+        if (_selectBlockUI != null) return _selectBlockUI.GetText();
         return null;
     }
 
     public void AddBlock(string text)
     {
         var currentPosition = handField.GetComponent<RectTransform>().position;
-        var widthRef = (handField.GetComponent<RectTransform>().rect.width - blockUI.GetComponent<RectTransform>().rect.width) / 2;
+        var widthRef = (handField.GetComponent<RectTransform>().rect.width -
+                        blockUI.GetComponent<RectTransform>().rect.width) / 2;
         for (var i = 0; i < _blockList.Length; i++)
         {
             if (_blockList[i] == null)
             {
-                var bottomCenter = new Vector3(currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i, currentPosition.y, 0f);
+                var bottomCenter =
+                    new Vector3(
+                        currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
+                        currentPosition.y, 0f);
                 _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
                 _blockList[i].GetComponent<BlockUI>().SetText(text);
                 break;

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{Request, RequestData, ResponseData},
     model::control::connect::ConnectResponse,
     router::RequestContext,
     service::player_service::PlayerService,
@@ -28,22 +28,23 @@ impl Controller for ConnectController {
         &self,
         req: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        let req = match req {
-            Request::Connect(req) => req,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        let data = req.get_data();
+        let req = match data.as_ref() {
+            RequestData::Connect(req) => req,
             _ => panic!("invalid request"),
         };
         match self.player_service.get_player(context.client_id) {
             Some(_) => return Err("client already connected".into()),
             None => self.player_service.add_player(
                 context.client_id,
-                req.name,
+                req.name.clone(),
                 #[cfg(not(test))]
                 context.sender,
             ),
         };
 
-        Ok(Response::Connect(ConnectResponse { success: true }))
+        Ok(ResponseData::Connect(ConnectResponse { success: true }))
     }
 }
 
@@ -64,9 +65,12 @@ mod tests {
             Arc::new(GameService::new()),
         )));
         controller.handle_request(
-            Request::Connect(ConnectRequest {
-                name: String::from("test"),
-            }),
+            Request::new(
+                0,
+                Arc::new(RequestData::Connect(ConnectRequest {
+                    name: String::from("test"),
+                })),
+            ),
             RequestContext { client_id: 0 },
         )?;
         let player = controller.player_service.get_player(0).unwrap();
@@ -83,16 +87,22 @@ mod tests {
             Arc::new(GameService::new()),
         )));
         controller.handle_request(
-            Request::Connect(ConnectRequest {
-                name: String::from("test"),
-            }),
+            Request::new(
+                0,
+                Arc::new(RequestData::Connect(ConnectRequest {
+                    name: String::from("test"),
+                })),
+            ),
             RequestContext { client_id: 0 },
         )?;
         assert!(controller
             .handle_request(
-                Request::Connect(ConnectRequest {
-                    name: String::from("test"),
-                }),
+                Request::new(
+                    0,
+                    Arc::new(RequestData::Connect(ConnectRequest {
+                        name: String::from("test"),
+                    }))
+                ),
                 RequestContext { client_id: 0 },
             )
             .is_err());

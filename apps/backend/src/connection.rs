@@ -113,89 +113,91 @@ impl Connection {
     pub async fn write_frame(&self, frame: &Frame) -> Result<(), Box<dyn std::error::Error>> {
         match frame {
             Frame::Response(res) => {
-                let mut buf = match res {
-                    crate::frame::Response::Connect(res) => {
+                let mut buf = match res.get_data().as_ref() {
+                    crate::frame::ResponseData::Connect(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::Disconnect(res) => {
+                    crate::frame::ResponseData::Disconnect(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::Heartbeat(res) => {
+                    crate::frame::ResponseData::Heartbeat(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::CreateLobby(res) => {
+                    crate::frame::ResponseData::CreateLobby(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::JoinLobby(res) => {
+                    crate::frame::ResponseData::JoinLobby(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::QuitLobby(res) => {
+                    crate::frame::ResponseData::QuitLobby(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::ListLobby(res) => {
+                    crate::frame::ResponseData::ListLobby(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::Ready(res) => {
+                    crate::frame::ResponseData::Ready(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::StartGame(res) => {
+                    crate::frame::ResponseData::StartGame(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::Error(res) => {
+                    crate::frame::ResponseData::Error(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::LobbyBroadcast(res) => {
+                    crate::frame::ResponseData::LobbyBroadcast(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::SetTile(res) => {
+                    crate::frame::ResponseData::SetTile(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::FinishTurn(res) => {
+                    crate::frame::ResponseData::FinishTurn(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::GetNewCard(res) => {
+                    crate::frame::ResponseData::GetNewCard(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
-                    crate::frame::Response::GameBroadcast(res) => {
+                    crate::frame::ResponseData::GameBroadcast(res) => {
                         let mut buf = BytesMut::with_capacity(res.encoded_len());
                         res.encode(&mut buf)?;
                         buf
                     }
                 };
-                self.writer
-                    .lock()
-                    .await
-                    .write_u32_le(buf.len().try_into().unwrap())
-                    .await?;
-                self.writer.lock().await.write_buf(&mut buf).await?;
+
+                {
+                    let mut writer = self.writer.lock().await;
+                    writer.write_u32_le(res.get_state()).await?;
+                    writer.write_u32_le(buf.len().try_into().unwrap()).await?;
+                    writer.write_buf(&mut buf).await?;
+                }
+
                 Ok(())
             }
             _ => Err("not implemented".into()),

@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use crate::connection::Connection;
 use crate::controller::control::connect::ConnectController;
-use crate::frame::Frame;
+use crate::controller::game::get_new_card::GetNewCardController;
+use crate::controller::game::set_tile::SetTileController;
+use crate::frame::{Frame, Response};
 use crate::router::{RequestContext, Router};
 use crate::service::lobby_service::LobbyService;
 use crate::service::player_service::PlayerService;
@@ -82,6 +84,7 @@ impl Server {
                     };
                     match frame {
                         Frame::Request(req) => {
+                            let state = req.get_state();
                             match server.router.route(
                                 req,
                                 RequestContext {
@@ -91,7 +94,11 @@ impl Server {
                                 },
                             ) {
                                 Ok(res) => {
-                                    if tx.send(Frame::Response(res)).await.is_err() {
+                                    if tx
+                                        .send(Frame::Response(Response::new(state, Arc::new(res))))
+                                        .await
+                                        .is_err()
+                                    {
                                         eprintln!("failed to send frame");
                                         break;
                                     }
@@ -181,6 +188,20 @@ impl Server {
             .register_controller(
                 Operation::StartGame,
                 Box::new(StartController::new(
+                    player_service.clone(),
+                    game_service.clone(),
+                )),
+            )
+            .register_controller(
+                Operation::SetTile,
+                Box::new(SetTileController::new(
+                    player_service.clone(),
+                    game_service.clone(),
+                )),
+            )
+            .register_controller(
+                Operation::GetNewCard,
+                Box::new(GetNewCardController::new(
                     player_service.clone(),
                     game_service.clone(),
                 )),

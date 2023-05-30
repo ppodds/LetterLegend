@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     controller::controller::PrintableController,
-    frame::{Request, Response},
+    frame::{Request, RequestData, ResponseData},
     router::RequestContext,
     service::player_service::PlayerService,
 };
@@ -28,9 +28,9 @@ impl Controller for DisconnectController {
         &self,
         req: Request,
         context: RequestContext,
-    ) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
-        assert!(match req {
-            Request::Disconnect => true,
+    ) -> Result<ResponseData, Box<dyn std::error::Error + Send + Sync>> {
+        assert!(match *req.get_data() {
+            RequestData::Disconnect => true,
             _ => false,
         });
         let player = match self.player_service.get_player(context.client_id) {
@@ -38,7 +38,9 @@ impl Controller for DisconnectController {
             None => return Err("Player not found".into()),
         };
         self.player_service.remove_player(player)?;
-        Ok(Response::Disconnect(DisconnectResponse { success: true }))
+        Ok(ResponseData::Disconnect(DisconnectResponse {
+            success: true,
+        }))
     }
 }
 
@@ -60,7 +62,10 @@ mod tests {
         controller
             .player_service
             .add_player(0, String::from("test"));
-        controller.handle_request(Request::Disconnect, RequestContext { client_id: 0 })?;
+        controller.handle_request(
+            Request::new(0, Arc::new(RequestData::Disconnect)),
+            RequestContext { client_id: 0 },
+        )?;
         assert!(controller.player_service.get_player(0).is_none());
         Ok(())
     }
@@ -72,7 +77,10 @@ mod tests {
             Arc::new(GameService::new()),
         )));
         assert!(controller
-            .handle_request(Request::Disconnect, RequestContext { client_id: 0 })
+            .handle_request(
+                Request::new(0, Arc::new(RequestData::Disconnect)),
+                RequestContext { client_id: 0 }
+            )
             .is_err());
         Ok(())
     }

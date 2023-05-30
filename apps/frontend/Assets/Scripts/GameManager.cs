@@ -20,6 +20,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject gameUI;
     public Transform playersParent;
     private Lobby _lobby;
+    private float _heartBeatTimeBase;
+    private float _heartBeatTime;
     public uint PlayerID { get; private set; }
     public GameTcpClient GameTcpClient { get; private set; }
 
@@ -29,9 +31,6 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
-        startPanel.gameObject.SetActive(true);
-        lobbyPanel.gameObject.SetActive(false);
-        roomPanel.gameObject.SetActive(false);
         if (Instance != null)
         {
             Destroy(gameObject);
@@ -40,6 +39,20 @@ public class GameManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        _heartBeatTimeBase = _heartBeatTime = Time.time;
+        startPanel.gameObject.SetActive(true);
+        lobbyPanel.gameObject.SetActive(false);
+        roomPanel.gameObject.SetActive(false);
+    }
+
+    private void Update()
+    {
+        _heartBeatTime = Time.time;
+        if (_heartBeatTime - _heartBeatTimeBase >= 20)
+        {
+            HeartBeat();
+            _heartBeatTimeBase = _heartBeatTime;
+        }
     }
 
     public bool ConnectToServer()
@@ -53,5 +66,10 @@ public class GameManager : MonoBehaviour
     {
         var res = await GameTcpClient.Start();
         SceneManager.LoadScene("InGame");
+    }
+    
+    private async void HeartBeat()
+    {
+        await GameTcpClient.HeartBeat();
     }
 }

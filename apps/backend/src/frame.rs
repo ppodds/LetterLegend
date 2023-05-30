@@ -1,4 +1,4 @@
-use std::io::Cursor;
+use std::{io::Cursor, sync::Arc};
 
 use bytes::Buf;
 use prost::Message;
@@ -23,7 +23,27 @@ pub enum Frame {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Request {
+pub struct Request {
+    state: u32,
+    data: Arc<RequestData>,
+}
+
+impl Request {
+    pub fn new(state: u32, data: Arc<RequestData>) -> Self {
+        Self { state, data }
+    }
+
+    pub fn get_state(&self) -> u32 {
+        self.state
+    }
+
+    pub fn get_data(&self) -> Arc<RequestData> {
+        self.data.clone()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RequestData {
     Connect(ConnectRequest),
     Disconnect,
     Heartbeat,
@@ -38,27 +58,47 @@ pub enum Request {
     GetNewCard,
 }
 
-impl Hash for Request {
+impl Hash for RequestData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
-            Request::Connect(_) => 0.hash(state),
-            Request::Disconnect => 1.hash(state),
-            Request::Heartbeat => 2.hash(state),
-            Request::CreateLobby(_) => 3.hash(state),
-            Request::JoinLobby(_) => 4.hash(state),
-            Request::QuitLobby => 5.hash(state),
-            Request::ListLobby => 6.hash(state),
-            Request::Ready => 7.hash(state),
-            Request::StartGame => 8.hash(state),
-            Request::SetTile(_) => 9.hash(state),
-            Request::FinishTurn => 10.hash(state),
-            Request::GetNewCard => 11.hash(state),
+            RequestData::Connect(_) => 0.hash(state),
+            RequestData::Disconnect => 1.hash(state),
+            RequestData::Heartbeat => 2.hash(state),
+            RequestData::CreateLobby(_) => 3.hash(state),
+            RequestData::JoinLobby(_) => 4.hash(state),
+            RequestData::QuitLobby => 5.hash(state),
+            RequestData::ListLobby => 6.hash(state),
+            RequestData::Ready => 7.hash(state),
+            RequestData::StartGame => 8.hash(state),
+            RequestData::SetTile(_) => 9.hash(state),
+            RequestData::FinishTurn => 10.hash(state),
+            RequestData::GetNewCard => 11.hash(state),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum Response {
+pub struct Response {
+    state: u32,
+    data: Arc<ResponseData>,
+}
+
+impl Response {
+    pub fn new(state: u32, data: Arc<ResponseData>) -> Self {
+        Self { state, data }
+    }
+
+    pub fn get_state(&self) -> u32 {
+        self.state
+    }
+
+    pub fn get_data(&self) -> Arc<ResponseData> {
+        self.data.clone()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ResponseData {
     Error(crate::model::error::error::Error),
     Connect(ConnectResponse),
     Disconnect(DisconnectResponse),
@@ -91,7 +131,7 @@ impl Frame {
                 return Err(Error::Other(e));
             }
         };
-        src.set_position(4);
+        src.set_position(8);
         let payload_len = get_u32(src)?;
         let payload = src.take(payload_len as usize);
         let e = match op {
@@ -122,33 +162,70 @@ impl Frame {
             }
         };
         src.set_position(4);
+        let state = get_u32(src)?;
         let payload_len = get_u32(src)?;
         let payload = src.take(payload_len as usize);
         match op {
             Operation::Connect => match ConnectRequest::decode(payload) {
-                Ok(req) => Ok(Frame::Request(Request::Connect(req))),
+                Ok(req) => Ok(Frame::Request(Request {
+                    state,
+                    data: Arc::new(RequestData::Connect(req)),
+                })),
                 Err(e) => Err(Error::ProtobufDecodeFailed(e)),
             },
-            Operation::Disconnect => Ok(Frame::Request(Request::Disconnect)),
-            Operation::Heartbeat => Ok(Frame::Request(Request::Heartbeat)),
+            Operation::Disconnect => Ok(Frame::Request(Request {
+                state,
+                data: Arc::new(RequestData::Disconnect),
+            })),
+            Operation::Heartbeat => Ok(Frame::Request(Request {
+                state,
+                data: Arc::new(RequestData::Heartbeat),
+            })),
             Operation::CreateLobby => match CreateRequest::decode(payload) {
-                Ok(req) => Ok(Frame::Request(Request::CreateLobby(req))),
+                Ok(req) => Ok(Frame::Request(Request {
+                    state,
+                    data: Arc::new(RequestData::CreateLobby(req)),
+                })),
                 Err(e) => Err(Error::ProtobufDecodeFailed(e)),
             },
             Operation::JoinLobby => match JoinRequest::decode(payload) {
-                Ok(req) => Ok(Frame::Request(Request::JoinLobby(req))),
+                Ok(req) => Ok(Frame::Request(Request {
+                    state,
+                    data: Arc::new(RequestData::JoinLobby(req)),
+                })),
                 Err(e) => Err(Error::ProtobufDecodeFailed(e)),
             },
-            Operation::QuitLobby => Ok(Frame::Request(Request::QuitLobby)),
-            Operation::ListLobby => Ok(Frame::Request(Request::ListLobby)),
-            Operation::Ready => Ok(Frame::Request(Request::Ready)),
-            Operation::StartGame => Ok(Frame::Request(Request::StartGame)),
+            Operation::QuitLobby => Ok(Frame::Request(Request {
+                state,
+                data: Arc::new(RequestData::QuitLobby),
+            })),
+            Operation::ListLobby => Ok(Frame::Request(Request {
+                state,
+                data: Arc::new(RequestData::ListLobby),
+            })),
+            Operation::Ready => Ok(Frame::Request(Request {
+                state,
+                data: Arc::new(RequestData::Ready),
+            })),
+            Operation::StartGame => Ok(Frame::Request(Request {
+                state,
+                data: Arc::new(RequestData::StartGame),
+            })),
             Operation::SetTile => match SetTileRequest::decode(payload) {
-                Ok(req) => Ok(Frame::Request(Request::SetTile(req))),
+                Ok(req) => Ok(Frame::Request(Request {
+                    state,
+                    data: Arc::new(RequestData::SetTile(req)),
+                })),
                 Err(e) => Err(Error::ProtobufDecodeFailed(e)),
             },
-            Operation::FinishTurn => Ok(Frame::Request(Request::FinishTurn)),
-            Operation::GetNewCard => Ok(Frame::Request(Request::GetNewCard)),
+            Operation::FinishTurn => Ok(Frame::Request(Request {
+                state,
+                data: Arc::new(RequestData::FinishTurn),
+            })),
+            Operation::GetNewCard => Ok(Frame::Request(Request {
+                state,
+                data: Arc::new(RequestData::GetNewCard),
+            })),
         }
     }
 }

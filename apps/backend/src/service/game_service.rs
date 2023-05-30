@@ -11,11 +11,13 @@ use crate::{
 };
 
 #[cfg(not(test))]
-use crate::frame::Response;
+use crate::frame::{Response, ResponseData};
 #[cfg(not(test))]
-use crate::model::game::broadcast::{GameBroadcast, GameEvent};
+use crate::model::game::broadcast::GameEvent;
 #[cfg(not(test))]
 use crate::model::lobby::broadcast::{LobbyBroadcast, LobbyEvent};
+#[cfg(not(test))]
+use crate::model::{game::broadcast::GameBroadcast, state::State};
 
 #[derive(Debug)]
 pub struct GameService {
@@ -39,6 +41,16 @@ impl GameService {
         if player != lobby.leader {
             return Err("Only leader can start game".into());
         }
+        let mut check = true;
+        for player in lobby.get_players() {
+            if !player.get_ready() {
+                check = false;
+                break;
+            }
+        }
+        if !check {
+            return Err("Not all players are ready".into());
+        }
         let game = {
             let mut next_id = self.next_game_id.lock().unwrap();
             let game = Arc::new(Game::new(
@@ -55,14 +67,20 @@ impl GameService {
         };
         for game_player in game.get_players() {
             game_player.player.set_game(Some(game.clone()));
+            if game_player.player == player {
+                continue;
+            }
             #[cfg(not(test))]
             tokio::spawn(async move {
                 if let Err(e) = game_player
                     .player
-                    .send_message(Response::LobbyBroadcast(LobbyBroadcast {
-                        event: LobbyEvent::Start as i32,
-                        lobby: None,
-                    }))
+                    .send_message(Response::new(
+                        State::LobbyBroadcast as u32,
+                        Arc::new(ResponseData::LobbyBroadcast(LobbyBroadcast {
+                            event: LobbyEvent::Start as i32,
+                            lobby: None,
+                        })),
+                    ))
                     .await
                 {
                     eprintln!("Error sending lobby broadcast: {}", e);
@@ -96,13 +114,16 @@ impl GameService {
                 tokio::spawn(async move {
                     if let Err(e) = game_player
                         .player
-                        .send_message(Response::GameBroadcast(GameBroadcast {
-                            event: GameEvent::Leave as i32,
-                            board: None,
-                            players: Some(crate::model::player::players::Players::from(
-                                &game.get_players(),
-                            )),
-                        }))
+                        .send_message(Response::new(
+                            State::GameBroadcast as u32,
+                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                                event: GameEvent::Leave as i32,
+                                board: None,
+                                players: Some(crate::model::player::players::Players::from(
+                                    &game.get_players(),
+                                )),
+                            })),
+                        ))
                         .await
                     {
                         eprintln!("Error sending game broadcast: {}", e);
@@ -138,6 +159,10 @@ impl GameService {
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
+                if game_player == game.get_player_in_this_turn() {
+                    continue;
+                }
+
                 let board = game.get_board().clone();
                 tokio::spawn(async move {
                     let t = Some(crate::model::game::board::Board::from(
@@ -145,11 +170,14 @@ impl GameService {
                     ));
                     if let Err(e) = game_player
                         .player
-                        .send_message(Response::GameBroadcast(GameBroadcast {
-                            event: GameEvent::PlaceTile as i32,
-                            board: t,
-                            players: None,
-                        }))
+                        .send_message(Response::new(
+                            State::GameBroadcast as u32,
+                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                                event: GameEvent::PlaceTile as i32,
+                                board: t,
+                                players: None,
+                            })),
+                        ))
                         .await
                     {
                         eprintln!("Error sending game broadcast: {}", e);
@@ -171,14 +199,21 @@ impl GameService {
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
+                if game_player == game.get_player_in_this_turn() {
+                    continue;
+                }
+
                 tokio::spawn(async move {
                     if let Err(e) = game_player
                         .player
-                        .send_message(Response::GameBroadcast(GameBroadcast {
-                            event: GameEvent::Shuffle as i32,
-                            board: None,
-                            players: None,
-                        }))
+                        .send_message(Response::new(
+                            State::GameBroadcast as u32,
+                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                                event: GameEvent::Shuffle as i32,
+                                board: None,
+                                players: None,
+                            })),
+                        ))
                         .await
                     {
                         eprintln!("Error sending game broadcast: {}", e);
@@ -199,9 +234,9 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new();
         let leader = Arc::new(Player::new(0, "test".to_string()));
-        assert!(game_service
-            .start_game(leader.clone(), Arc::new(Lobby::new(0, 4, leader.clone())))
-            .is_ok());
+        let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
+        lobby.get_player(leader.id).unwrap().set_ready(true);
+        assert!(game_service.start_game(leader.clone(), lobby).is_ok());
         Ok(())
     }
 
@@ -226,6 +261,16 @@ mod tests {
         let player = Arc::new(Player::new(1, "test2".to_string()));
         lobby.add_player(player.clone())?;
         assert!(game_service.start_game(player, lobby).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn start_game_with_players_not_ready_should_return_error(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new();
+        let leader = Arc::new(Player::new(0, "test".to_string()));
+        let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
+        assert!(game_service.start_game(leader, lobby).is_err());
         Ok(())
     }
 

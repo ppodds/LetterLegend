@@ -2,16 +2,21 @@ using UnityEngine;
 
 public class EdgeScrolling : MonoBehaviour
 {
+    public Board board;
     private Camera _camera;
     private float _scrollSpeed;
     private float _scrollZone;
     private Vector3 _screenBound;
+    private Vector3 _boardMin;
+    private Vector3 _boardMax;
 
     private void Awake()
     {
         _camera = Camera.main;
         _scrollSpeed = 15f;
         _scrollZone = 20f;
+        _boardMin = board.GetBoardMin();
+        _boardMax = board.GetBoardMax();
     }
 
     private void Update()
@@ -39,10 +44,10 @@ public class EdgeScrolling : MonoBehaviour
     {
         var worldPosition = _camera.ScreenToWorldPoint(_camera.transform.position + scrollRef);
         var worldScreenPosition = _camera.ScreenToWorldPoint(_screenBound + scrollRef);
-        if ((worldPosition.x < Board.BoardMin.x && scrollRef.x < 0)
-            || (worldScreenPosition.x > Board.BoardMax.x && scrollRef.x > 0)) scrollRef.x = 0;
-        if ((worldPosition.y < Board.BoardMin.y && scrollRef.y < 0)
-            || (worldScreenPosition.y > Board.BoardMax.y && scrollRef.y > 0)) scrollRef.y = 0;
+        if ((worldPosition.x < _boardMin.x && scrollRef.x < 0)
+            || (worldScreenPosition.x > _boardMax.x && scrollRef.x > 0)) scrollRef.x = 0;
+        if ((worldPosition.y < _boardMin.y && scrollRef.y < 0)
+            || (worldScreenPosition.y > _boardMax.y && scrollRef.y > 0)) scrollRef.y = 0;
         _camera.transform.position += scrollRef;
     }
 }

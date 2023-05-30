@@ -8,8 +8,8 @@ public class Board : MonoBehaviour
     private readonly List<GameObject> _blocks = new List<GameObject>();
     private MouseEventSystem _mouseEventSystem;
     private HandField _handField;
-    public static Vector3 BoardMin;
-    public static Vector3 BoardMax;
+    private Vector3 _boardMin;
+    private Vector3 _boardMax;
 
     private void Awake()
     {
@@ -24,9 +24,9 @@ public class Board : MonoBehaviour
             }
         }
 
-        BoardMin = new Vector3(_blocks[0].transform.position.x - scale,
+        _boardMin = new Vector3(_blocks[0].transform.position.x - scale,
             _blocks[0].transform.position.y - scale, 0);
-        BoardMax = new Vector3(_blocks[26 * 26 - 1].transform.position.x + scale,
+        _boardMax = new Vector3(_blocks[26 * 26 - 1].transform.position.x + scale,
             _blocks[26 * 26 - 1].transform.position.y + scale, 0);
         _mouseEventSystem = MouseEventSystem.GetInstance();
         _mouseEventSystem.GetMouseReleasedEvent().AddListener(MouseReleased);
@@ -59,5 +59,15 @@ public class Board : MonoBehaviour
         }
 
         _handField.ResetPosition();
+    }
+
+    public Vector3 GetBoardMin()
+    {
+        return _boardMin;
+    }
+
+    public Vector3 GetBoardMax()
+    {
+        return _boardMax;
     }
 }

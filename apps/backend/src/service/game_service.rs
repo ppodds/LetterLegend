@@ -193,7 +193,7 @@ impl GameService {
         {
             let board = game.get_board().clone();
             for game_player in game.get_players() {
-                let game = game.clone();
+                let _game = game.clone();
                 let t = Some(crate::model::game::board::Board::from(
                     &*board.lock().unwrap(),
                 ));
@@ -205,9 +205,7 @@ impl GameService {
                             Arc::new(ResponseData::GameBroadcast(GameBroadcast {
                                 event: GameEvent::PlaceTile as i32,
                                 board: t,
-                                players: Some(crate::model::player::players::Players::from(
-                                    &game.get_players(),
-                                )),
+                                players: None,
                             })),
                         ))
                         .await

@@ -34,7 +34,7 @@ public class HandField : MonoBehaviour
                     currentPosition.y, 0f);
             _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
         }
-        
+
         ResetBlock();
         _mouseEventSystem.GetMouseClickedEvent().AddListener(MouseClicked);
         _mouseEventSystem.GetFirstClickedEvent().AddListener(FirstClicked);
@@ -91,9 +91,12 @@ public class HandField : MonoBehaviour
 
     public void ResetPosition()
     {
-        _selectBlockUI.transform.position = _selectBlockPosition;
-        _selectBlockUI = null;
-        _selectBlockPosition = Vector3.zero;
+        if (_selectBlockUI)
+        {
+            _selectBlockUI.transform.position = _selectBlockPosition;
+            _selectBlockUI = null;
+            _selectBlockPosition = Vector3.zero;
+        }
     }
 
     public bool GetSelectBlock()
@@ -108,7 +111,7 @@ public class HandField : MonoBehaviour
         {
             for (var i = 0; i < _blockList.Length; i++)
             {
-                if (_blockList[i] && _blockList[i].GetComponent<BlockUI>() == _selectBlockUI) return (uint) i;
+                if (_blockList[i] && _blockList[i].GetComponent<BlockUI>() == _selectBlockUI) return (uint)i;
             }
         }
 

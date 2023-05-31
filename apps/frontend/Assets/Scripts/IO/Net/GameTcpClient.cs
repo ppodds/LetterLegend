@@ -21,6 +21,7 @@ namespace IO.Net
         private readonly TcpClient _client;
         private readonly Task _thread;
         private readonly Dictionary<uint, TaskCompletionSource<byte[]>> _taskMap;
+        private readonly System.Random _random = new System.Random();
 
         public GameTcpClient(string host, int port)
         {
@@ -41,12 +42,10 @@ namespace IO.Net
                     {
                         // read state
                         var buf = new byte[4];
-                        Debug.Log("stuck read");
                         var n = await stream.ReadAsync(buf);
                         if (n != buf.Length)
                             throw new WrongProtocolException();
                         var state = BitConverter.ToUInt32(buf);
-                        Debug.Log(state);
                         // read length
                         buf = new byte[4];
                         n = await stream.ReadAsync(buf);
@@ -81,14 +80,7 @@ namespace IO.Net
             var stream = new MemoryStream();
             req.WriteTo(stream);
 
-            // var responseTaskCompletionSource = new TaskCompletionSource<byte[]>();
-            // _taskMap.Add(0, responseTaskCompletionSource);
-            // await RpcCall(Operation.Connect, stream.ToArray());
-            // var buf = await WaitForResponse(0);
-            // var res = ConnectResponse.Parser.ParseFrom(buf);
-            
-            var res = ConnectResponse.Parser.ParseFrom(await RpcTest(Operation.Connect, stream.ToArray()));
-            Debug.Log(res);
+            var res = ConnectResponse.Parser.ParseFrom(await Rpc(Operation.Connect, stream.ToArray()));
             if (!res.Success)
             {
                 throw new Exception("create player failed");
@@ -243,61 +235,28 @@ namespace IO.Net
             return await Rpc(operation, Array.Empty<byte>(), readResponse);
         }
 
-        public async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true,
-            CancellationToken token = default)
+        private async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true)
         {
-            await RpcCall(operation, data);
-            var result = readResponse ? await ReadRpcResponse(token) : null;
-            return result;
-        }
-        
-        public async Task<byte[]> RpcTest(Operation operation, byte[] data, bool readResponse = true)
-        {
+            var state = (uint)_random.Next(0, int.MaxValue);
             var responseTaskCompletionSource = new TaskCompletionSource<byte[]>();
-            _taskMap.Add(0, responseTaskCompletionSource);
-            await RpcCall(operation, data);
-            var result = readResponse ?await _taskMap[0].Task : null;
+            _taskMap.Add(state, responseTaskCompletionSource);
+            await RpcCall(operation, data, state);
+            var result = readResponse ?await _taskMap[state].Task : null;
             return result;
         }
 
-        private async Task RpcCall(Operation operation, byte[] data)
+        private async Task RpcCall(Operation operation, byte[] data, uint state)
         {
             var stream = _client.GetStream();
+            var t = BitConverter.GetBytes(state);
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(t);
             var outputStream = new MemoryStream();
             await outputStream.WriteAsync(new byte[] { (byte)operation, 0, 0, 0 });
-            await outputStream.WriteAsync(new byte[] { 0, 0, 0, 0 });
+            await outputStream.WriteAsync(t);
             await outputStream.WriteAsync(BitConverter.GetBytes(data.Length));
             await outputStream.WriteAsync(data);
             await stream.WriteAsync(outputStream.ToArray());
-        }
-        
-        private async Task<byte[]> ReadRpcResponse(CancellationToken token = default)
-        {
-            var stream = _client.GetStream();
-            // read state number
-            var buf = new byte[4];
-            token.ThrowIfCancellationRequested();
-            var state = await stream.ReadAsync(buf, token);
-            token.ThrowIfCancellationRequested();
-            if (state != buf.Length)
-                throw new WrongProtocolException();
-            // read content length
-            buf = new byte[4];
-            token.ThrowIfCancellationRequested();
-            var n = await stream.ReadAsync(buf, token);
-            token.ThrowIfCancellationRequested();
-            if (n != buf.Length)
-                throw new WrongProtocolException();
-            var resLength = BitConverter.ToUInt32(buf);
-            if (resLength == 0)
-                return Array.Empty<byte>();
-            // read content
-            buf = new byte[resLength];
-            n = await stream.ReadAsync(buf, token);
-            token.ThrowIfCancellationRequested();
-            if (n != buf.Length)
-                throw new WrongProtocolException();
-            return buf;
         }
     }
 }

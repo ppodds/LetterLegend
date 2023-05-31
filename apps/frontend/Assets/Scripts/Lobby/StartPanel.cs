@@ -42,7 +42,6 @@ public class StartPanel : MonoBehaviour
         SetInput();
         GameManager.Instance.Server = new Server{Host = _host, TcpPort = _port};
         var task = GameManager.Instance.ConnectToServer();
-        Debug.Log(task);
         if (task)
         {
             await GameManager.Instance.GameTcpClient.ConnectAsync(_playerName);

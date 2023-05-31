@@ -20,23 +20,60 @@ namespace IO.Net
         private readonly int _port;
         private readonly TcpClient _client;
         private readonly Task _thread;
+        private readonly Dictionary<uint, TaskCompletionSource<byte[]>> _taskMap;
+
         public GameTcpClient(string host, int port)
         {
             _host = host;
             _port = port;
             _client = new TcpClient();
+            _taskMap = new Dictionary<uint, TaskCompletionSource<byte[]>>();
         }
         
-        public State State { get; private set; }
-        
-        public void TransitionTo(State state)
+        private async void Loop()
         {
-            State = state;
+            await Task.Run(async () =>
+            {
+                var stream = _client.GetStream();
+                while (true)
+                {
+                    try
+                    {
+                        // read state
+                        var buf = new byte[4];
+                        Debug.Log("stuck read");
+                        var n = await stream.ReadAsync(buf);
+                        if (n != buf.Length)
+                            throw new WrongProtocolException();
+                        var state = BitConverter.ToUInt32(buf);
+                        Debug.Log(state);
+                        // read length
+                        buf = new byte[4];
+                        n = await stream.ReadAsync(buf);
+                        if (n != buf.Length)
+                            throw new WrongProtocolException();
+                        var resLength = BitConverter.ToUInt32(buf);
+                        if (resLength == 0)
+                            return Array.Empty<byte>();
+                        // read data
+                        buf = new byte[resLength];
+                        n = await stream.ReadAsync(buf);
+                        if (n != buf.Length)
+                            throw new WrongProtocolException();
+                        _taskMap[state].SetResult(buf);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogException(ex);
+                    }
+                }
+            });
         }
 
         public async Task ConnectAsync(string name)
         {
             await _client.ConnectAsync(_host, _port);
+            Loop();
             var req = new ConnectRequest()
             {
                 Name = name
@@ -44,7 +81,14 @@ namespace IO.Net
             var stream = new MemoryStream();
             req.WriteTo(stream);
 
-            var res = ConnectResponse.Parser.ParseFrom(await Rpc(Operation.Connect, stream.ToArray()));
+            // var responseTaskCompletionSource = new TaskCompletionSource<byte[]>();
+            // _taskMap.Add(0, responseTaskCompletionSource);
+            // await RpcCall(Operation.Connect, stream.ToArray());
+            // var buf = await WaitForResponse(0);
+            // var res = ConnectResponse.Parser.ParseFrom(buf);
+            
+            var res = ConnectResponse.Parser.ParseFrom(await RpcTest(Operation.Connect, stream.ToArray()));
+            Debug.Log(res);
             if (!res.Success)
             {
                 throw new Exception("create player failed");
@@ -89,7 +133,6 @@ namespace IO.Net
 
             var stream = new MemoryStream();
             req.WriteTo(stream);
-
             var res = JoinResponse.Parser.ParseFrom(await Rpc(Operation.JoinLobby, stream.ToArray()));
             if (!res.Success)
             {
@@ -205,6 +248,15 @@ namespace IO.Net
         {
             await RpcCall(operation, data);
             var result = readResponse ? await ReadRpcResponse(token) : null;
+            return result;
+        }
+        
+        public async Task<byte[]> RpcTest(Operation operation, byte[] data, bool readResponse = true)
+        {
+            var responseTaskCompletionSource = new TaskCompletionSource<byte[]>();
+            _taskMap.Add(0, responseTaskCompletionSource);
+            await RpcCall(operation, data);
+            var result = readResponse ?await _taskMap[0].Task : null;
             return result;
         }
 

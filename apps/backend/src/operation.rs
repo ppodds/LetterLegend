@@ -16,6 +16,7 @@ pub enum Operation {
     SetTile,
     FinishTurn,
     GetNewCard,
+    Cancel,
 }
 
 impl TryFrom<u8> for Operation {
@@ -55,6 +56,7 @@ impl TryFrom<&RequestData> for Operation {
             RequestData::SetTile(_) => Ok(Operation::SetTile),
             RequestData::FinishTurn => Ok(Operation::FinishTurn),
             RequestData::GetNewCard => Ok(Operation::GetNewCard),
+            RequestData::Cancel(_) => Ok(Operation::Cancel),
             // _ => Err("invalid request".into()),
         }
     }

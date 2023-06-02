@@ -56,8 +56,9 @@ public class LobbyPanel : MonoBehaviour
         for (var i = 0; i < lobbyListTransform.childCount; i++) Destroy(lobbyListTransform.GetChild(i).gameObject);
     }
 
-    public void BackToStart()
+    public async void BackToStart()
     {
+        await GameManager.Instance.GameTcpClient.Disconnect();
         GameManager.Instance.startPanel.gameObject.SetActive(true);
         gameObject.SetActive(false);
     }

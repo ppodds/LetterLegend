@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Protos.Lobby;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 public class RoomPanel : MonoBehaviour
 {
@@ -13,7 +14,56 @@ public class RoomPanel : MonoBehaviour
     public Transform playerListTransform;
     public Button readyButton;
     public Lobby Lobby { get; set; }
+    private int _state;
 
+    private enum State
+    {
+        Join = 0,
+        Leave = 1,
+        Destroy = 2,
+        Start = 3,
+        NoChange = 4
+    }
+    
+    public void SetLobbyState(int state, Lobby lobby)
+    {
+        _state = state;
+        Lobby = lobby;
+    }
+
+    public void Update()
+    {
+        var state = (State)_state;
+        switch (state)
+        {
+            case State.Join:
+                _state = (int)State.NoChange;
+                ClearList();
+                UpdateRoom();
+                break;
+            case State.Leave:
+                _state = (int)State.NoChange;
+                ClearList();
+                UpdateRoom();
+                break;
+            case State.Destroy:
+                _state = (int)State.NoChange;
+                lobbyPanel.SetActive(true);
+                gameObject.SetActive(false);
+                break;
+            case State.Start:
+                // GameManager.Instance.StartGame();
+                _state = (int)State.NoChange;
+                SceneManager.LoadScene("InGame");
+                //TODO switch to InGame State
+                break;
+            case State.NoChange:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+    
     public async void BackToLobby()
     {
         await GameManager.Instance.GameTcpClient.QuitLobby();
@@ -34,38 +84,7 @@ public class RoomPanel : MonoBehaviour
     {
         if(Lobby!=null)
             UpdateRoom();
-        
-        // GameManager.Instance.GameTcpClient.Handle();
-        // var inLobby = true;
-        // while (inLobby)
-        // {
-        //     var res = await GameManager.Instance.GameTcpClient.WaitLobbyBroadcast();
-        //     if(res == null) continue;
-        //     switch (res.Event)
-        //     {
-        //         case LobbyEvent.Join:
-        //             ClearList();
-        //             Lobby = res.Lobby;
-        //             UpdateRoom();
-        //             break;
-        //         case LobbyEvent.Leave:
-        //             ClearList();
-        //             Lobby = res.Lobby;
-        //             UpdateRoom();
-        //             break;
-        //         case LobbyEvent.Destroy:
-        //             lobbyPanel.SetActive(true);
-        //             gameObject.SetActive(false);
-        //             inLobby = false;
-        //             break;
-        //         case LobbyEvent.Start:
-        //             GameManager.Instance.StartGame();
-        //             inLobby = false;
-        //             break;
-        //         default:
-        //             throw new ArgumentOutOfRangeException();
-        //     }
-        // }
+        GameManager.Instance.GameTcpClient.Handle();
     }
 
     public async void SetReady()

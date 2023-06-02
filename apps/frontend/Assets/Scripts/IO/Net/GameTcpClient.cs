@@ -16,23 +16,51 @@ namespace IO.Net
 {
     public class GameTcpClient
     {
-        private readonly string _host;
-        private readonly int _port;
-        private readonly TcpClient _client;
-        private readonly Task _thread;
-        private readonly Dictionary<uint, TaskCompletionSource<byte[]>> _taskMap;
-        private readonly System.Random _random = new System.Random();
-
+        private  readonly string _host;
+        private  readonly int _port;
+        private  readonly TcpClient _client;
+        private  readonly Dictionary<uint, TaskCompletionSource<byte[]>> _taskMap;
+        private readonly System.Random _random;
+        public State State { get; private set; }
+        private readonly CancellationTokenSource _cancellationTokenSource;
+        
         public GameTcpClient(string host, int port)
         {
             _host = host;
             _port = port;
             _client = new TcpClient();
             _taskMap = new Dictionary<uint, TaskCompletionSource<byte[]>>();
+            State = new StateInit(this);
+            _random = new System.Random();
+            _cancellationTokenSource = new CancellationTokenSource();
+        }
+        
+        public void TransitionTo(State state)
+        {
+            State = state;
+        }
+
+        public bool IsConnected()
+        {
+            return _client.Connected;
+        }
+        
+        public void Handle(byte[] buf = null)
+        {
+            try
+            {
+                State.ExecAsync(buf);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
         }
         
         private async void Loop()
         {
+            var token = _cancellationTokenSource.Token;
             await Task.Run(async () =>
             {
                 var stream = _client.GetStream();
@@ -40,6 +68,8 @@ namespace IO.Net
                 {
                     try
                     {
+                        if(token.IsCancellationRequested)
+                            token.ThrowIfCancellationRequested();
                         // read state
                         var buf = new byte[4];
                         var n = await stream.ReadAsync(buf);
@@ -59,14 +89,19 @@ namespace IO.Net
                         n = await stream.ReadAsync(buf);
                         if (n != buf.Length)
                             throw new WrongProtocolException();
-                        _taskMap[state].SetResult(buf);
+                        if(state == 0 || state == 1)
+                            Handle(buf);
+                        else
+                            _taskMap[state].SetResult(buf);
                     }
                     catch (Exception ex)
                     {
                         Debug.LogException(ex);
+                        break;
                     }
                 }
-            });
+                return Array.Empty<byte>();
+            }, token);
         }
 
         public async Task ConnectAsync(string name)
@@ -154,7 +189,7 @@ namespace IO.Net
             return true;
         }
 
-        public async Task<Protos.Game.Board> Start()
+        public async Task<Protos.Game.Board> StartGame()
         {
             var res = StartResponse.Parser.ParseFrom(await Rpc(Operation.StartGame));
             if (!res.Success)
@@ -226,7 +261,7 @@ namespace IO.Net
             {
                 throw new Exception("disconnect failed");
             }
-
+            _cancellationTokenSource.Cancel();
             _client.Close();
         }
 
@@ -237,7 +272,7 @@ namespace IO.Net
 
         private async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true)
         {
-            var state = (uint)_random.Next(0, int.MaxValue);
+            var state = (uint)_random.Next(2, int.MaxValue);
             var responseTaskCompletionSource = new TaskCompletionSource<byte[]>();
             _taskMap.Add(state, responseTaskCompletionSource);
             await RpcCall(operation, data, state);

@@ -21,8 +21,16 @@ namespace IO.Net
         private readonly TcpClient _client;
         private readonly Dictionary<uint, TaskCompletionSource<byte[]>> _taskMap;
         private readonly System.Random _random;
-        public State State { get; private set; }
+
         private readonly CancellationTokenSource _cancellationTokenSource;
+        public RoomPanel RoomPanel { get; set; }
+        public Board Board { get; set; }
+
+        enum Broadcast
+        {
+            Lobby = 0,
+            Game = 1
+        }
 
         public GameTcpClient(string host, int port)
         {
@@ -30,14 +38,8 @@ namespace IO.Net
             _port = port;
             _client = new TcpClient();
             _taskMap = new Dictionary<uint, TaskCompletionSource<byte[]>>();
-            State = new StateInit(this);
             _random = new System.Random();
             _cancellationTokenSource = new CancellationTokenSource();
-        }
-
-        public void TransitionTo(State state)
-        {
-            State = state;
         }
 
         public bool IsConnected()
@@ -45,23 +47,10 @@ namespace IO.Net
             return _client.Connected;
         }
 
-        public void Handle(byte[] buf = null)
-        {
-            try
-            {
-                State.ExecAsync(buf);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
-            }
-        }
-
-        private async void Loop()
+        private void Loop()
         {
             var token = _cancellationTokenSource.Token;
-            await Task.Run(async () =>
+            Task receiveLoop = Task.Run(async () =>
             {
                 var stream = _client.GetStream();
                 while (true)
@@ -83,16 +72,31 @@ namespace IO.Net
                             throw new WrongProtocolException();
                         var resLength = BitConverter.ToUInt32(buf);
                         if (resLength == 0)
-                            return Array.Empty<byte>();
+                            _taskMap[state].SetResult(Array.Empty<byte>());
                         // read data
                         buf = new byte[resLength];
                         n = await stream.ReadAsync(buf);
                         if (n != buf.Length)
                             throw new WrongProtocolException();
-                        if (state == 0 || state == 1)
-                            Handle(buf);
-                        else
+                        if ((Broadcast)state == Broadcast.Lobby)
+                        {
+                            var lobbyRes = LobbyBroadcast.Parser.ParseFrom(buf);
+                            RoomPanel.SetLobbyState((int)lobbyRes.Event, lobbyRes.Lobby);
+                        }
+                        else if ((Broadcast)state == Broadcast.Game)
+                        {
+                            var gameRes = GameBroadcast.Parser.ParseFrom(buf);
+                            // TODO: send message to board main thread
+                            // Board.SetGameState((int)gameRes.Event, gameRes.Lobby);
+                        }
+                        else if (state >= 2 && state < uint.MaxValue)
+                        {
                             _taskMap[state].SetResult(buf);
+                        }
+                        else
+                        {
+                            throw new KeyNotFoundException();
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -100,8 +104,6 @@ namespace IO.Net
                         break;
                     }
                 }
-
-                return Array.Empty<byte>();
             }, token);
         }
 
@@ -275,7 +277,10 @@ namespace IO.Net
 
         private async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true)
         {
-            var state = (uint)_random.Next(2, int.MaxValue);
+            // var state = (uint)_random.Next(2, uint.MaxValue);
+            uint thirtyBits = (uint)_random.Next(2, 1 << 30);
+            uint twoBits = (uint)_random.Next(1 << 2);
+            uint state = (thirtyBits << 2) | twoBits;
             var responseTaskCompletionSource = new TaskCompletionSource<byte[]>();
             _taskMap.Add(state, responseTaskCompletionSource);
             await RpcCall(operation, data, state);

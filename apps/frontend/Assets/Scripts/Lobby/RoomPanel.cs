@@ -85,7 +85,7 @@ public class RoomPanel : MonoBehaviour
     {
         if (Lobby != null)
             UpdateRoom();
-        GameManager.Instance.GameTcpClient.Handle();
+        GameManager.Instance.GameTcpClient.RoomPanel = this;
     }
 
     public async void SetReady()

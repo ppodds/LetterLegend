@@ -16,52 +16,49 @@ public class RoomPanel : MonoBehaviour
     public Button readyButton;
     public Lobby Lobby { get; set; }
     private int _state;
+    private Queue<LobbyBroadcast> _lobbyBroadcasts;
+    private object _lockObject;
 
-    private enum State
+    public void SetLobbyState(LobbyBroadcast lobbyBroadcast)
     {
-        Join = 0,
-        Leave = 1,
-        Destroy = 2,
-        Start = 3,
-        NoChange = 4
-    }
-
-    public void SetLobbyState(int state, Lobby lobby)
-    {
-        _state = state;
-        Lobby = lobby;
+        lock (_lockObject)
+        {
+            _lobbyBroadcasts.Enqueue(lobbyBroadcast);
+        }
     }
 
     public void Update()
     {
-        var state = (State)_state;
-        switch (state)
+        lock (_lockObject)
         {
-            case State.Join:
-                _state = (int)State.NoChange;
-                ClearList();
-                UpdateRoom();
-                break;
-            case State.Leave:
-                _state = (int)State.NoChange;
-                ClearList();
-                UpdateRoom();
-                break;
-            case State.Destroy:
-                _state = (int)State.NoChange;
-                lobbyPanel.SetActive(true);
-                gameObject.SetActive(false);
-                break;
-            case State.Start:
-                // GameManager.Instance.StartGame();
-                _state = (int)State.NoChange;
-                SceneManager.LoadScene("InGame");
-                //TODO switch to InGame State
-                break;
-            case State.NoChange:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            if (_lobbyBroadcasts.Count == 0)
+            {
+                return;
+            }
+
+            var res = _lobbyBroadcasts.Dequeue();
+            switch (res.Event)
+            {
+                case LobbyEvent.Join:
+                    Lobby = res.Lobby;
+                    ClearList();
+                    UpdateRoom();
+                    break;
+                case LobbyEvent.Leave:
+                    Lobby = res.Lobby;
+                    ClearList();
+                    UpdateRoom();
+                    break;
+                case LobbyEvent.Destroy:
+                    lobbyPanel.SetActive(true);
+                    gameObject.SetActive(false);
+                    break;
+                case LobbyEvent.Start:
+                    SceneManager.LoadScene("InGame");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
     }
 
@@ -86,6 +83,8 @@ public class RoomPanel : MonoBehaviour
         if (Lobby != null)
             UpdateRoom();
         GameManager.Instance.GameTcpClient.RoomPanel = this;
+        _lockObject = new object();
+        _lobbyBroadcasts = new Queue<LobbyBroadcast>();
     }
 
     public async void SetReady()

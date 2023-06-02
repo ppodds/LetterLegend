@@ -50,7 +50,7 @@ namespace IO.Net
         private void Loop()
         {
             var token = _cancellationTokenSource.Token;
-            Task receiveLoop = Task.Run(async () =>
+            var receiveLoop = Task.Run(async () =>
             {
                 var stream = _client.GetStream();
                 while (true)
@@ -81,13 +81,13 @@ namespace IO.Net
                         if ((Broadcast)state == Broadcast.Lobby)
                         {
                             var lobbyRes = LobbyBroadcast.Parser.ParseFrom(buf);
-                            RoomPanel.SetLobbyState((int)lobbyRes.Event, lobbyRes.Lobby);
+                            RoomPanel.SetLobbyState(lobbyRes);
                         }
                         else if ((Broadcast)state == Broadcast.Game)
                         {
                             var gameRes = GameBroadcast.Parser.ParseFrom(buf);
                             // TODO: send message to board main thread
-                            // Board.SetGameState((int)gameRes.Event, gameRes.Lobby);
+                            // Board.SetGameState(gameRes);
                         }
                         else if (state >= 2 && state < uint.MaxValue)
                         {

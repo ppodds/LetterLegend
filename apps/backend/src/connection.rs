@@ -189,6 +189,11 @@ impl Connection {
                         res.encode(&mut buf)?;
                         buf
                     }
+                    crate::frame::ResponseData::Cancel(res) => {
+                        let mut buf = BytesMut::with_capacity(res.encoded_len());
+                        res.encode(&mut buf)?;
+                        buf
+                    }
                 };
 
                 {

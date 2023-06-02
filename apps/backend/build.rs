@@ -36,6 +36,7 @@ fn main() -> Result<()> {
             "src/proto/game/finish_turn.proto",
             "src/proto/game/get_new_card.proto",
             "src/proto/game/set_tile.proto",
+            "src/proto/game/cancel.proto",
         ],
         &["src/proto/"],
     )?;

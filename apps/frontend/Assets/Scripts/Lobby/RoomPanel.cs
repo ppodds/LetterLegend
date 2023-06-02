@@ -5,6 +5,7 @@ using Protos.Lobby;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+
 public class RoomPanel : MonoBehaviour
 {
     public GameObject startPanel;
@@ -24,7 +25,7 @@ public class RoomPanel : MonoBehaviour
         Start = 3,
         NoChange = 4
     }
-    
+
     public void SetLobbyState(int state, Lobby lobby)
     {
         _state = state;
@@ -63,14 +64,14 @@ public class RoomPanel : MonoBehaviour
                 throw new ArgumentOutOfRangeException();
         }
     }
-    
+
     public async void BackToLobby()
     {
         await GameManager.Instance.GameTcpClient.QuitLobby();
         lobbyPanel.SetActive(true);
         gameObject.SetActive(false);
     }
-    
+
     public void UpdateRoom()
     {
         foreach (var player in Lobby.Players)
@@ -82,7 +83,7 @@ public class RoomPanel : MonoBehaviour
 
     private void OnEnable()
     {
-        if(Lobby!=null)
+        if (Lobby != null)
             UpdateRoom();
         GameManager.Instance.GameTcpClient.Handle();
     }
@@ -92,7 +93,7 @@ public class RoomPanel : MonoBehaviour
         await GameManager.Instance.GameTcpClient.SetReady();
         readyButton.GetComponent<Image>().color = Color.gray;
     }
-    
+
     public void StartGame()
     {
         GameManager.Instance.StartGame();
@@ -102,7 +103,7 @@ public class RoomPanel : MonoBehaviour
     {
         for (var i = 0; i < playerListTransform.childCount; i++) Destroy(playerListTransform.GetChild(i).gameObject);
     }
-    
+
     private void OnDisable()
     {
         ClearList();

@@ -7,12 +7,12 @@ using UnityEngine;
 
 public abstract class State
 {
-    protected GameTcpClient Client { get;}
+    protected GameTcpClient Client { get; }
 
     protected State(GameTcpClient gameTcpClient)
     {
         Client = gameTcpClient;
     }
-    
+
     public abstract void ExecAsync(byte[] buf);
 }

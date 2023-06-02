@@ -11,12 +11,13 @@ using UnityEngine;
 public class StateGameBroadcast : State
 {
     private readonly Board _board;
+
     public override void ExecAsync(byte[] buf)
     {
         var res = GameBroadcast.Parser.ParseFrom(buf);
         // TODO: send message to board main thread
         // _board.SetGameState((int)res.Event, res.Lobby);
-        if(res.Event == GameEvent.Leave)
+        if (res.Event == GameEvent.Leave)
             Client.TransitionTo(new StateLobbyBroadcast(Client));
     }
 

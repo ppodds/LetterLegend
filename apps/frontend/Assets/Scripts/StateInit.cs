@@ -11,6 +11,7 @@ using UnityEngine;
 public class StateInit : State
 {
     private readonly Board _board;
+
     public override void ExecAsync(byte[] buf)
     {
         Client.TransitionTo(new StateLobbyBroadcast(Client));

@@ -10,11 +10,12 @@ using UnityEngine;
 public class StateLobbyBroadcast : State
 {
     private readonly RoomPanel _roomPanel;
+
     public override void ExecAsync(byte[] buf)
     {
         var res = LobbyBroadcast.Parser.ParseFrom(buf);
         _roomPanel.SetLobbyState((int)res.Event, res.Lobby);
-        if(res.Event == LobbyEvent.Start)
+        if (res.Event == LobbyEvent.Start)
             Client.TransitionTo(new StateGameBroadcast(Client));
     }
 

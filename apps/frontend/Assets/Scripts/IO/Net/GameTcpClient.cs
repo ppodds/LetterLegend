@@ -16,14 +16,14 @@ namespace IO.Net
 {
     public class GameTcpClient
     {
-        private  readonly string _host;
-        private  readonly int _port;
-        private  readonly TcpClient _client;
-        private  readonly Dictionary<uint, TaskCompletionSource<byte[]>> _taskMap;
+        private readonly string _host;
+        private readonly int _port;
+        private readonly TcpClient _client;
+        private readonly Dictionary<uint, TaskCompletionSource<byte[]>> _taskMap;
         private readonly System.Random _random;
         public State State { get; private set; }
         private readonly CancellationTokenSource _cancellationTokenSource;
-        
+
         public GameTcpClient(string host, int port)
         {
             _host = host;
@@ -34,7 +34,7 @@ namespace IO.Net
             _random = new System.Random();
             _cancellationTokenSource = new CancellationTokenSource();
         }
-        
+
         public void TransitionTo(State state)
         {
             State = state;
@@ -44,7 +44,7 @@ namespace IO.Net
         {
             return _client.Connected;
         }
-        
+
         public void Handle(byte[] buf = null)
         {
             try
@@ -57,7 +57,7 @@ namespace IO.Net
                 throw;
             }
         }
-        
+
         private async void Loop()
         {
             var token = _cancellationTokenSource.Token;
@@ -68,7 +68,7 @@ namespace IO.Net
                 {
                     try
                     {
-                        if(token.IsCancellationRequested)
+                        if (token.IsCancellationRequested)
                             token.ThrowIfCancellationRequested();
                         // read state
                         var buf = new byte[4];
@@ -89,7 +89,7 @@ namespace IO.Net
                         n = await stream.ReadAsync(buf);
                         if (n != buf.Length)
                             throw new WrongProtocolException();
-                        if(state == 0 || state == 1)
+                        if (state == 0 || state == 1)
                             Handle(buf);
                         else
                             _taskMap[state].SetResult(buf);
@@ -100,6 +100,7 @@ namespace IO.Net
                         break;
                     }
                 }
+
                 return Array.Empty<byte>();
             }, token);
         }
@@ -228,6 +229,7 @@ namespace IO.Net
             {
                 throw new Exception("get new card failed");
             }
+
             return res.Cards.ToList();
         }
 
@@ -261,6 +263,7 @@ namespace IO.Net
             {
                 throw new Exception("disconnect failed");
             }
+
             _cancellationTokenSource.Cancel();
             _client.Close();
         }
@@ -276,7 +279,7 @@ namespace IO.Net
             var responseTaskCompletionSource = new TaskCompletionSource<byte[]>();
             _taskMap.Add(state, responseTaskCompletionSource);
             await RpcCall(operation, data, state);
-            var result = readResponse ?await _taskMap[state].Task : null;
+            var result = readResponse ? await _taskMap[state].Task : null;
             return result;
         }
 

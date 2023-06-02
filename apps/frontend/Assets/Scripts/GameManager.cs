@@ -67,10 +67,10 @@ public class GameManager : MonoBehaviour
         var res = await GameTcpClient.StartGame();
         SceneManager.LoadScene("InGame");
     }
-    
+
     private async void HeartBeat()
     {
-        if(GameTcpClient!=null && GameTcpClient.IsConnected())
+        if (GameTcpClient != null && GameTcpClient.IsConnected())
             await GameTcpClient.HeartBeat();
     }
 }

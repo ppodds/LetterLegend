@@ -82,6 +82,12 @@ impl GameService {
                             event: LobbyEvent::Start as i32,
                             lobby: None,
                             cards: Some(Cards::from(&game_player.get_cards())),
+                            current_player: Some(crate::model::player::player::Player::from(
+                                game_player,
+                            )),
+                            next_player: Some(crate::model::player::player::Player::from(
+                                game.get_next_turn_player(),
+                            )),
                         })),
                     ))
                     .await

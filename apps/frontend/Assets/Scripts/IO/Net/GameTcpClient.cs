@@ -78,18 +78,18 @@ namespace IO.Net
                         n = await stream.ReadAsync(buf);
                         if (n != buf.Length)
                             throw new WrongProtocolException();
-                        if ((Broadcast)state == Broadcast.Lobby)
+                        if (state == (uint)(Broadcast.Lobby))
                         {
                             var lobbyRes = LobbyBroadcast.Parser.ParseFrom(buf);
                             RoomPanel.SetLobbyState(lobbyRes);
                         }
-                        else if ((Broadcast)state == Broadcast.Game)
+                        else if (state == (uint)(Broadcast.Game))
                         {
                             var gameRes = GameBroadcast.Parser.ParseFrom(buf);
                             // TODO: send message to board main thread
                             // Board.SetGameState(gameRes);
                         }
-                        else if (state >= 2 && state < uint.MaxValue)
+                        else if (state < uint.MaxValue)
                         {
                             _taskMap[state].SetResult(buf);
                         }

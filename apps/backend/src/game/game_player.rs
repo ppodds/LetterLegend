@@ -62,6 +62,10 @@ impl GamePlayer {
         self.cards.lock().unwrap().clone()
     }
 
+    pub fn get_card(&self, index: usize) -> Card {
+        self.cards.lock().unwrap()[index].clone()
+    }
+
     pub fn take_card(&self, index: usize) -> Card {
         let mut cards = self.cards.lock().unwrap();
         let old_card = &cards[index];

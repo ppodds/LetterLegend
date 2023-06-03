@@ -4,5 +4,5 @@ package game.card;
 option csharp_namespace = "Protos.Game";
 
 message Card {
-    optional string symbol = 1;
+    string symbol = 1;
 }

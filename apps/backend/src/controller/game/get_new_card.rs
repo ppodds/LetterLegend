@@ -65,7 +65,7 @@ impl Controller for GetNewCardController {
         )?;
         Ok(ResponseData::GetNewCard(GetNewCardResponse {
             success: true,
-            cards: cards.iter().map(|char| Card::from(char)).collect(),
+            cards: Some(crate::model::game::cards::Cards::from(&cards)),
         }))
     }
 }
@@ -78,6 +78,39 @@ mod tests {
     use crate::service::lobby_service::{self, LobbyService};
 
     use super::*;
+
+    #[test]
+    fn handle_request_with_test_user_is_his_round_should_get_new_card(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let game_service = Arc::new(GameService::new());
+        let controller = GetNewCardController::new(
+            Arc::new(PlayerService::new(
+                Arc::new(LobbyService::new()),
+                game_service.clone(),
+            )),
+            game_service,
+        );
+        let player = controller
+            .player_service
+            .add_player(0, String::from("test"));
+        let lobby_service = Arc::new(lobby_service::LobbyService::new());
+        let lobby = lobby_service.create_lobby(player.clone(), 4)?;
+        let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
+        lobby_player.set_ready(true);
+        controller.game_service.start_game(player, lobby)?;
+        let res = controller.handle_request(
+            Request::new(0, Arc::new(RequestData::GetNewCard)),
+            RequestContext { client_id: 0 },
+        )?;
+        match res {
+            ResponseData::GetNewCard(data) => {
+                let cards = data.cards.unwrap().cards;
+                assert!(cards[0].card.is_some())
+            }
+            _ => panic!("wrong response type"),
+        }
+        Ok(())
+    }
 
     #[test]
     fn handle_request_with_test_user_is_not_his_round_should_return_error(

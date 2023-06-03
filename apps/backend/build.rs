@@ -33,6 +33,7 @@ fn main() -> Result<()> {
             "src/proto/game/start.proto",
             "src/proto/game/tile.proto",
             "src/proto/game/card.proto",
+            "src/proto/game/hand_card.proto",
             "src/proto/game/cards.proto",
             "src/proto/game/broadcast.proto",
             "src/proto/game/finish_turn.proto",

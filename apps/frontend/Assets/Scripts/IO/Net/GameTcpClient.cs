@@ -153,6 +153,7 @@ namespace IO.Net
             {
                 throw new Exception("get new card failed");
             }
+
             return res.Cards.ToList();
         }
 
@@ -172,6 +173,26 @@ namespace IO.Net
             {
                 throw new Exception("heart beat failed");
             }
+        }
+
+        public async Task<bool> Cancel(uint x, uint y)
+        {
+            var req = new CancelRequest()
+            {
+                X = x,
+                Y = y,
+            };
+
+            var stream = new MemoryStream();
+            req.WriteTo(stream);
+
+            var res = CancelResponse.Parser.ParseFrom(await Rpc(Operation.Cancel, stream.ToArray()));
+            if (!res.Success)
+            {
+                throw new Exception("cancel failed");
+            }
+
+            return res.Success;
         }
 
         public Task Reconnect()

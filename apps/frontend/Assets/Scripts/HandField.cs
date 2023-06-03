@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using UnityEngine;
+﻿using UnityEngine;
 
 public class HandField : MonoBehaviour
 {
@@ -51,12 +50,13 @@ public class HandField : MonoBehaviour
         var res = await GameManager.Instance.GameTcpClient.GetNewCard();
         for (var i = 0; i < res.Count; i++)
         {
-            //Debug.Log(res[i].ToString());
-            if (_blockList[i])
+            if (!_blockList[i])
             {
-                var block = _blockList[i].GetComponent<BlockUI>();
-                if (block) block.SetText(res[i].Symbol);
+                continue;
             }
+
+            var block = _blockList[i].GetComponent<BlockUI>();
+            if (block) block.SetText(res[i].Symbol);
         }
     }
 
@@ -68,16 +68,22 @@ public class HandField : MonoBehaviour
 
     private void FirstClicked(Vector2 position)
     {
-        for (var i = 0; i < _blockList.Length; i++)
+        foreach (var tempBlock in _blockList)
         {
-            if (_blockList[i])
+            if (!tempBlock)
             {
-                var block = _blockList[i].GetComponent<BlockUI>();
-                if (!block || !block.Contains(position)) continue;
-                _selectBlockUI = block;
-                _selectBlockPosition = _selectBlockUI.transform.position;
-                break;
+                continue;
             }
+
+            var block = tempBlock.GetComponent<BlockUI>();
+            if (!block || !block.Contains(position))
+            {
+                continue;
+            }
+
+            _selectBlockUI = block;
+            _selectBlockPosition = _selectBlockUI.transform.position;
+            break;
         }
     }
 
@@ -91,28 +97,31 @@ public class HandField : MonoBehaviour
 
     public void ResetPosition()
     {
-        if (_selectBlockUI)
+        if (!_selectBlockUI)
         {
-            _selectBlockUI.transform.position = _selectBlockPosition;
-            _selectBlockUI = null;
-            _selectBlockPosition = Vector3.zero;
+            return;
         }
+
+        _selectBlockUI.transform.position = _selectBlockPosition;
+        _selectBlockUI = null;
+        _selectBlockPosition = Vector3.zero;
     }
 
     public bool GetSelectBlock()
     {
-        if (_selectBlockUI != null) return true;
-        return false;
+        return _selectBlockUI != null;
     }
 
     public uint? GetIndex()
     {
-        if (_selectBlockUI != null)
+        if (_selectBlockUI == null)
         {
-            for (var i = 0; i < _blockList.Length; i++)
-            {
-                if (_blockList[i] && _blockList[i].GetComponent<BlockUI>() == _selectBlockUI) return (uint)i;
-            }
+            return null;
+        }
+
+        for (var i = 0; i < _blockList.Length; i++)
+        {
+            if (_blockList[i] && _blockList[i].GetComponent<BlockUI>() == _selectBlockUI) return (uint)i;
         }
 
         return null;
@@ -122,16 +131,20 @@ public class HandField : MonoBehaviour
     {
         for (var i = 0; i < _blockList.Length; i++)
         {
-            if (_blockList[i])
+            if (!_blockList[i])
             {
-                var block = _blockList[i].GetComponent<BlockUI>();
-                if (block == _selectBlockUI)
-                {
-                    Destroy(block.gameObject);
-                    _blockList[i] = null;
-                    break;
-                }
+                continue;
             }
+
+            var block = _blockList[i].GetComponent<BlockUI>();
+            if (block != _selectBlockUI)
+            {
+                continue;
+            }
+
+            Destroy(block.gameObject);
+            _blockList[i] = null;
+            break;
         }
 
         _selectBlockUI = null;
@@ -140,8 +153,7 @@ public class HandField : MonoBehaviour
 
     public string GetText()
     {
-        if (_selectBlockUI != null) return _selectBlockUI.GetText();
-        return null;
+        return _selectBlockUI != null ? _selectBlockUI.GetText() : null;
     }
 
     public void AddBlock(string text)
@@ -151,16 +163,18 @@ public class HandField : MonoBehaviour
                         blockUI.GetComponent<RectTransform>().rect.width) / 2;
         for (var i = 0; i < _blockList.Length; i++)
         {
-            if (_blockList[i] == null)
+            if (_blockList[i] != null)
             {
-                var bottomCenter =
-                    new Vector3(
-                        currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
-                        currentPosition.y, 0f);
-                _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
-                _blockList[i].GetComponent<BlockUI>().SetText(text);
-                break;
+                continue;
             }
+
+            var bottomCenter =
+                new Vector3(
+                    currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
+                    currentPosition.y, 0f);
+            _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
+            _blockList[i].GetComponent<BlockUI>().SetText(text);
+            break;
         }
     }
 }

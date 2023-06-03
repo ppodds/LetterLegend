@@ -73,22 +73,32 @@ impl GameService {
                 continue;
             }
             #[cfg(not(test))]
-            tokio::spawn(async move {
-                if let Err(e) = game_player
-                    .player
-                    .send_message(Response::new(
-                        State::LobbyBroadcast as u32,
-                        Arc::new(ResponseData::LobbyBroadcast(LobbyBroadcast {
-                            event: LobbyEvent::Start as i32,
-                            lobby: None,
-                            cards: Some(Cards::from(&game_player.get_cards())),
-                        })),
-                    ))
-                    .await
-                {
-                    eprintln!("Error sending lobby broadcast: {}", e);
-                }
-            });
+            {
+                let game = game.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = game_player
+                        .clone()
+                        .player
+                        .send_message(Response::new(
+                            State::LobbyBroadcast as u32,
+                            Arc::new(ResponseData::LobbyBroadcast(LobbyBroadcast {
+                                event: LobbyEvent::Start as i32,
+                                lobby: None,
+                                cards: Some(Cards::from(&game_player.get_cards())),
+                                current_player: Some(crate::model::player::player::Player::from(
+                                    game_player,
+                                )),
+                                next_player: Some(crate::model::player::player::Player::from(
+                                    game.get_next_turn_player(),
+                                )),
+                            })),
+                        ))
+                        .await
+                    {
+                        eprintln!("Error sending lobby broadcast: {}", e);
+                    }
+                });
+            }
         }
         Ok(game)
     }
@@ -196,6 +206,9 @@ impl GameService {
         {
             let board = game.get_board().clone();
             for game_player in game.get_players() {
+                if game_player == game.get_player_in_this_turn() {
+                    continue;
+                }
                 let _game = game.clone();
                 let t = Some(crate::model::game::board::Board::from(
                     &*board.lock().unwrap(),

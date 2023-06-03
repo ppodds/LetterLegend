@@ -21,7 +21,7 @@ namespace IO.Net
         private readonly TcpClient _client;
         private readonly Dictionary<uint, TaskCompletionSource<byte[]>> _taskMap;
         private readonly System.Random _random;
-
+        private Task _receiveLoop;
         private readonly CancellationTokenSource _cancellationTokenSource;
         public RoomPanel RoomPanel { get; set; }
         public Board Board { get; set; }
@@ -50,7 +50,7 @@ namespace IO.Net
         private void Loop()
         {
             var token = _cancellationTokenSource.Token;
-            var receiveLoop = Task.Run(async () =>
+            _receiveLoop = Task.Run(async () =>
             {
                 var stream = _client.GetStream();
                 while (true)
@@ -81,7 +81,7 @@ namespace IO.Net
                         if (state == (uint)(Broadcast.Lobby))
                         {
                             var lobbyRes = LobbyBroadcast.Parser.ParseFrom(buf);
-                            RoomPanel.SetLobbyState(lobbyRes);
+                            RoomPanel.BroadcastEnqueue(lobbyRes);
                         }
                         else if (state == (uint)(Broadcast.Game))
                         {
@@ -277,7 +277,6 @@ namespace IO.Net
 
         private async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true)
         {
-            // var state = (uint)_random.Next(2, uint.MaxValue);
             uint thirtyBits = (uint)_random.Next(2, 1 << 30);
             uint twoBits = (uint)_random.Next(1 << 2);
             uint state = (thirtyBits << 2) | twoBits;

@@ -206,6 +206,9 @@ impl GameService {
         {
             let board = game.get_board().clone();
             for game_player in game.get_players() {
+                if game_player == game.get_player_in_this_turn() {
+                    continue;
+                }
                 let _game = game.clone();
                 let t = Some(crate::model::game::board::Board::from(
                     &*board.lock().unwrap(),

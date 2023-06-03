@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package game.hand_card;
+option csharp_namespace = "Protos.Game";
+
+import "game/card.proto";
+
+message HandCard {
+    optional card.Card card = 1;
+}

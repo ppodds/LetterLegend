@@ -3,8 +3,8 @@ syntax = "proto3";
 package game.cards;
 option csharp_namespace = "Protos.Game";
 
-import "game/card.proto";
+import "game/hand_card.proto";
 
 message Cards {
-    repeated card.Card cards = 1;
+    repeated hand_card.HandCard cards = 1;
 }

@@ -4,8 +4,10 @@ package game.start;
 option csharp_namespace = "Protos.Game";
 
 import "game/board.proto";
+import "game/cards.proto";
 
 message StartResponse {
     bool success = 1;
     optional board.Board board = 2;
+    optional cards.Cards cards = 3;
 }

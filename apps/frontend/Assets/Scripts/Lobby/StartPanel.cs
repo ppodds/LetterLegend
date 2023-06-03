@@ -6,15 +6,17 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 using IO.Net;
+
+
 public class StartPanel : MonoBehaviour
 {
     public GameObject startPanel;
     public GameObject lobbyPanel;
     public GameObject roomPanel;
-    public TMP_InputField  hostField;
-    public TMP_InputField  tcpPortField;
-    public TMP_InputField  udpPortField;
-    public TMP_InputField  nameField;
+    public TMP_InputField hostField;
+    public TMP_InputField tcpPortField;
+    public TMP_InputField udpPortField;
+    public TMP_InputField nameField;
     public Button connectButton;
     private string _playerName;
     private string _host;
@@ -34,18 +36,18 @@ public class StartPanel : MonoBehaviour
         _port = int.Parse(tcpPortField.text);
         TestInput();
     }
-    
+
     public async void Login()
     {
         SetInput();
-        GameManager.Instance.Server = new Server{Host = _host, TcpPort = _port};
+        GameManager.Instance.Server = new Server { Host = _host, TcpPort = _port };
         var task = GameManager.Instance.ConnectToServer();
         if (task)
         {
             await GameManager.Instance.GameTcpClient.ConnectAsync(_playerName);
         }
+
         gameObject.SetActive(false);
         lobbyPanel.SetActive(true);
     }
-    
 }

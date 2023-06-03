@@ -64,12 +64,13 @@ public class GameManager : MonoBehaviour
 
     public async void StartGame()
     {
-        var res = await GameTcpClient.Start();
+        var res = await GameTcpClient.StartGame();
         SceneManager.LoadScene("InGame");
     }
-    
+
     private async void HeartBeat()
     {
-        await GameTcpClient.HeartBeat();
+        if (GameTcpClient != null && GameTcpClient.IsConnected())
+            await GameTcpClient.HeartBeat();
     }
 }

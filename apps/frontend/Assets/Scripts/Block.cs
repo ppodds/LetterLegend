@@ -8,6 +8,8 @@ public class Block : MonoBehaviour
     private Camera _mainCamera;
     private MouseEventSystem _mouseEventSystem;
     private HandField _handField;
+    private uint _x;
+    private uint _y;
 
     private void Awake()
     {
@@ -23,26 +25,54 @@ public class Block : MonoBehaviour
     public bool Contains(Vector2 position)
     {
         var worldPosition = _mainCamera.ScreenToWorldPoint(position);
-        if (_testCollider.bounds.Contains((Vector2)worldPosition) && _textMeshPro.text == "")
-        {
-            return true;
-        }
-
-        return false;
+        return _testCollider.bounds.Contains((Vector2)worldPosition);
     }
 
-    private void MouseRightClicked(Vector2 position)
+    private async void MouseRightClicked(Vector2 position)
     {
         var worldPosition = _mainCamera.ScreenToWorldPoint(position);
-        if (_testCollider.bounds.Contains((Vector2)worldPosition) && _textMeshPro.text != "")
+        if (!_testCollider.bounds.Contains((Vector2)worldPosition) || _textMeshPro.text == "")
         {
-            _handField.AddBlock(_textMeshPro.text);
-            _textMeshPro.text = "";
+            return;
         }
+
+        var res = await GameManager.Instance.GameTcpClient.Cancel(_x, _y);
+        if (!res)
+        {
+            return;
+        }
+
+        _handField.AddBlock(_textMeshPro.text);
+        _textMeshPro.text = "";
     }
 
     public void SetText(string text)
     {
         _textMeshPro.text = text;
+    }
+
+    public string GetText()
+    {
+        return _textMeshPro.text;
+    }
+
+    public void SetX(int x)
+    {
+        _x = (uint)x;
+    }
+
+    public uint GetX()
+    {
+        return _x;
+    }
+
+    public void SetY(int y)
+    {
+        _y = (uint)y;
+    }
+
+    public uint GetY()
+    {
+        return _y;
     }
 }

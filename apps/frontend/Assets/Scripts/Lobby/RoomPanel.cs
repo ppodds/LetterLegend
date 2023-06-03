@@ -1,8 +1,11 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Protos.Lobby;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+
 public class RoomPanel : MonoBehaviour
 {
     public GameObject startPanel;
@@ -12,6 +15,53 @@ public class RoomPanel : MonoBehaviour
     public Transform playerListTransform;
     public Button readyButton;
     public Lobby Lobby { get; set; }
+    private int _state;
+    private Queue<LobbyBroadcast> _lobbyBroadcasts;
+
+    public void BroadcastEnqueue(LobbyBroadcast lobbyBroadcast)
+    {
+        lock (_lobbyBroadcasts)
+        {
+            _lobbyBroadcasts.Enqueue(lobbyBroadcast);
+        }
+    }
+
+    public void Update()
+    {
+        LobbyBroadcast res;
+        lock (_lobbyBroadcasts)
+        {
+            if (_lobbyBroadcasts.Count == 0)
+            {
+                return;
+            }
+
+            res = _lobbyBroadcasts.Dequeue();
+        }
+
+        switch (res.Event)
+        {
+            case LobbyEvent.Join:
+                Lobby = res.Lobby;
+                ClearList();
+                UpdateRoom();
+                break;
+            case LobbyEvent.Leave:
+                Lobby = res.Lobby;
+                ClearList();
+                UpdateRoom();
+                break;
+            case LobbyEvent.Destroy:
+                lobbyPanel.SetActive(true);
+                gameObject.SetActive(false);
+                break;
+            case LobbyEvent.Start:
+                SceneManager.LoadScene("InGame");
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
 
     public async void BackToLobby()
     {
@@ -19,37 +69,46 @@ public class RoomPanel : MonoBehaviour
         lobbyPanel.SetActive(true);
         gameObject.SetActive(false);
     }
-    
+
     public void UpdateRoom()
     {
         foreach (var player in Lobby.Players)
         {
-            Debug.Log(player.Id + player.Name);
             var t = Instantiate(playerItem, playerListTransform).GetComponent<PlayerItem>();
             t.SetText(Lobby, player);
         }
     }
-    
+
+    private void OnEnable()
+    {
+        if (Lobby != null)
+            UpdateRoom();
+    }
+
+    private void Awake()
+    {
+        GameManager.Instance.GameTcpClient.RoomPanel = this;
+        _lobbyBroadcasts = new Queue<LobbyBroadcast>();
+    }
+
     public async void SetReady()
     {
-        var res = await GameManager.Instance.GameTcpClient.SetReady();
-        if (res)
-        {
-            readyButton.image.color = Color.gray;
-        }
-        else
-        {
-            Debug.Log("Set ready failed");
-        }
+        await GameManager.Instance.GameTcpClient.SetReady();
+        readyButton.GetComponent<Image>().color = Color.gray;
     }
-    
+
     public void StartGame()
     {
         GameManager.Instance.StartGame();
     }
-    
-    private void OnDisable()
+
+    private void ClearList()
     {
         for (var i = 0; i < playerListTransform.childCount; i++) Destroy(playerListTransform.GetChild(i).gameObject);
+    }
+
+    private void OnDisable()
+    {
+        ClearList();
     }
 }

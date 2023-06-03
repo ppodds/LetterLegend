@@ -18,9 +18,9 @@ public class LobbyPanel : MonoBehaviour
     {
         var lobby = await GameManager.Instance.GameTcpClient.CreateLobby(maxPlayers);
         // TODO need to check lobby create success?
-        if(lobby != null) EnterRoom(lobby);
+        if (lobby != null) EnterRoom(lobby);
     }
-    
+
     public void CreateLobby()
     {
         uint maxPlayers = 4;
@@ -43,6 +43,7 @@ public class LobbyPanel : MonoBehaviour
         {
             return;
         }
+
         foreach (var lobbyInfo in lobbyList)
         {
             var t = Instantiate(lobbyItem, lobbyListTransform).GetComponent<LobbyItem>();
@@ -50,14 +51,15 @@ public class LobbyPanel : MonoBehaviour
             t.UpdateText();
         }
     }
-    
+
     private void OnDisable()
     {
         for (var i = 0; i < lobbyListTransform.childCount; i++) Destroy(lobbyListTransform.GetChild(i).gameObject);
     }
 
-    public void BackToStart()
+    public async void BackToStart()
     {
+        await GameManager.Instance.GameTcpClient.Disconnect();
         GameManager.Instance.startPanel.gameObject.SetActive(true);
         gameObject.SetActive(false);
     }

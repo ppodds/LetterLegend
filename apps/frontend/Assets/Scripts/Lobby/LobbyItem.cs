@@ -12,13 +12,13 @@ public class LobbyItem : MonoBehaviour
     public TMP_Text lead;
     public TMP_Text people;
     public LobbyInfo LobbyInfo { get; set; }
-    
+
     public void UpdateText()
     {
         lead.SetText("Lead: " + LobbyInfo.Id);
         people.SetText(LobbyInfo.CurrentPlayers + " / " + LobbyInfo.MaxPlayers);
     }
-    
+
     private async Task JoinRoomTask()
     {
         var lobby = await GameManager.Instance.GameTcpClient.JoinLobby(LobbyInfo.Id);
@@ -27,11 +27,11 @@ public class LobbyItem : MonoBehaviour
             Debug.Log("Join failed");
             return;
         }
+
         Debug.Log(lobby);
         GameManager.Instance.lobbyPanel.EnterRoom(lobby);
-        
     }
-    
+
     public async void JoinRoom()
     {
         await JoinRoomTask();

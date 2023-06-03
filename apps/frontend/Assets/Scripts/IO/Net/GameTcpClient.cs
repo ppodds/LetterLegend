@@ -89,13 +89,16 @@ namespace IO.Net
                             // TODO: send message to board main thread
                             // Board.SetGameState(gameRes);
                         }
-                        else if (state < uint.MaxValue)
-                        {
-                            _taskMap[state].SetResult(buf);
-                        }
                         else
                         {
-                            throw new KeyNotFoundException();
+                            try
+                            {
+                                _taskMap[state].SetResult(buf);
+                            }
+                            catch
+                            {
+                                throw new KeyNotFoundException();
+                            }
                         }
                     }
                     catch (Exception ex)

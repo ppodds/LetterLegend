@@ -10,6 +10,7 @@ use crate::{
 use std::sync::Arc;
 
 use crate::controller::controller::Controller;
+#[cfg(not_test)]
 use crate::model::game::card::Card;
 
 #[derive(Debug, Clone)]

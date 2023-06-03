@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use crate::frame::Request;
+#[cfg(not_test)]
+use crate::game::game_player;
 use crate::model::game::start::StartResponse;
 use crate::service::game_service::GameService;
 use crate::{
@@ -48,11 +50,19 @@ impl Controller for StartController {
             Some(lobby) => lobby,
             None => return Err("Player not in lobby".into()),
         };
-        let game = self.game_service.start_game(player, lobby)?;
+        let game = self.game_service.start_game(player.clone(), lobby)?;
+        let game_player = match game.get_player(player.id) {
+            Some(game_player) => Arc::new(game_player),
+            None => return Err("find no player".into()),
+        };
+
         Ok(ResponseData::StartGame(StartResponse {
             success: true,
             board: Some(crate::model::game::board::Board::from(
                 &*game.get_board().lock().unwrap(),
+            )),
+            cards: Some(crate::model::game::cards::Cards::from(
+                &game_player.get_cards(),
             )),
         }))
     }

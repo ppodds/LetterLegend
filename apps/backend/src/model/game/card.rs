@@ -1,11 +1,11 @@
 include!(concat!(env!("OUT_DIR"), "/game.card.rs"));
 
-impl From<&Option<char>> for Card {
-    fn from(value: &Option<char>) -> Self {
+impl From<&crate::game::card::Card> for Card {
+    fn from(value: &crate::game::card::Card) -> Self {
         Self {
-            symbol: match value {
-                Some(c) => Some(String::from(*c)),
-                None => None,
+            symbol: match value.used {
+                true => Some(String::from(value.char)),
+                false => None,
             },
         }
     }

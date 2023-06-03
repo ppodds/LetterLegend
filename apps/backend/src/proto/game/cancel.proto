@@ -3,6 +3,8 @@ syntax = "proto3";
 package game.cancel;
 option csharp_namespace = "Protos.Game";
 
+import "game/cards.proto";
+
 message CancelRequest {
     uint32 x = 1;
     uint32 y = 2;
@@ -10,4 +12,5 @@ message CancelRequest {
 
 message CancelResponse {
     bool success = 1;
+    optional cards.Cards cards = 2;
 }

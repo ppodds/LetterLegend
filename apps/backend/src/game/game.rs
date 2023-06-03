@@ -78,6 +78,19 @@ impl Game {
     pub fn get_player_in_this_turn(&self) -> Arc<GamePlayer> {
         self.turn_queue.lock().unwrap().front().unwrap().clone()
     }
+
+    pub fn get_next_turn_player(&self) -> Arc<GamePlayer> {
+        if self.get_players().len() == 1 {
+            return self.get_player_in_this_turn();
+        }
+        self.turn_queue
+            .lock()
+            .unwrap()
+            .iter()
+            .nth(1)
+            .unwrap()
+            .clone()
+    }
 }
 
 #[cfg(test)]
@@ -97,6 +110,33 @@ mod tests {
         );
         game.next_turn();
         assert_eq!(*game.turn.lock().unwrap(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn get_next_turn_player_without_parameter_should_return_next_player(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let player0 = Arc::new(Player::new(0, String::from("test")));
+        let player1 = Arc::new(Player::new(1, String::from("test1")));
+        let game = Game::new(0, vec![player0.clone(), player1.clone()]);
+        let players = game.get_players();
+        assert_eq!(
+            game.get_next_turn_player().player,
+            players.get(1).unwrap().player
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn get_next_turn_player_only_one_person_without_parameter_should_return_next_player(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let player0 = Arc::new(Player::new(0, String::from("test")));
+        let game = Game::new(0, vec![player0.clone()]);
+        let players = game.get_players();
+        assert_eq!(
+            game.get_next_turn_player().player,
+            players.get(0).unwrap().player
+        );
         Ok(())
     }
 

@@ -52,7 +52,7 @@ impl Controller for StartController {
         };
         let game = self.game_service.start_game(player.clone(), lobby)?;
         let game_player = match game.get_player(player.id) {
-            Some(game_player) => Arc::new(game_player),
+            Some(game_player) => game_player,
             None => return Err("find no player".into()),
         };
 
@@ -63,6 +63,10 @@ impl Controller for StartController {
             )),
             cards: Some(crate::model::game::cards::Cards::from(
                 &game_player.get_cards(),
+            )),
+            current_player: Some(crate::model::player::player::Player::from(game_player)),
+            next_player: Some(crate::model::player::player::Player::from(
+                game.get_next_turn_player(),
             )),
         }))
     }

@@ -14,5 +14,6 @@
         SetTile,
         FinishTurn,
         GetNewCard,
+        Cancel,
     }
 }

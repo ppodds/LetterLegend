@@ -89,16 +89,12 @@ namespace IO.Net
                             // TODO: send message to board main thread
                             // Board.SetGameState(gameRes);
                         }
+                        else if (!_taskMap.ContainsKey(state))
+                        {
+                        }
                         else
                         {
-                            try
-                            {
-                                _taskMap[state].SetResult(buf);
-                            }
-                            catch
-                            {
-                                throw new KeyNotFoundException();
-                            }
+                            _taskMap[state].SetResult(buf);
                         }
                     }
                     catch (Exception ex)
@@ -287,6 +283,7 @@ namespace IO.Net
             _taskMap.Add(state, responseTaskCompletionSource);
             await RpcCall(operation, data, state);
             var result = readResponse ? await _taskMap[state].Task : null;
+            _taskMap.Remove(state);
             return result;
         }
 

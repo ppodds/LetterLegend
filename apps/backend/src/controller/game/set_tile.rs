@@ -52,8 +52,8 @@ impl Controller for SetTileController {
             Some(game_player) => game_player,
             None => return Err("Player not found".into()),
         };
-        let symbol = game_player.take_card(req.card_index as usize);
-        if symbol.used {
+        let card = game_player.get_card(req.card_index as usize);
+        if card.used {
             return Err("Card has used".into());
         }
         let turn_player = game.get_player_in_this_turn();
@@ -69,13 +69,14 @@ impl Controller for SetTileController {
         self.game_service.place_tile_on_board(
             game.clone(),
             Tile {
-                char: symbol.char,
+                char: card.char,
                 owner: player,
                 turn: game.get_turns(),
             },
             req.x as usize,
             req.y as usize,
         );
+        game_player.take_card(req.card_index as usize);
         Ok(ResponseData::SetTile(SetTileResponse { success: true }))
     }
 }
@@ -91,7 +92,41 @@ mod tests {
     };
 
     use super::*;
+    #[test]
 
+    fn handle_request_with_test_user_in_his_turn_should_set_tile(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let game_service = Arc::new(GameService::new());
+        let controller = SetTileController::new(
+            Arc::new(PlayerService::new(
+                Arc::new(LobbyService::new()),
+                game_service.clone(),
+            )),
+            game_service,
+        );
+        let player = controller
+            .player_service
+            .add_player(0, String::from("test"));
+        let lobby_service = Arc::new(lobby_service::LobbyService::new());
+        let lobby = lobby_service.create_lobby(player.clone(), 4)?;
+        let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
+        lobby_player.set_ready(true);
+        controller.game_service.start_game(player, lobby)?;
+        assert!(controller
+            .handle_request(
+                Request::new(
+                    0,
+                    Arc::new(RequestData::SetTile(SetTileRequest {
+                        x: 1,
+                        y: 1,
+                        card_index: 1,
+                    }))
+                ),
+                RequestContext { client_id: 0 },
+            )
+            .is_ok());
+        Ok(())
+    }
     #[test]
     fn handle_request_with_test_user_is_not_his_round_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {

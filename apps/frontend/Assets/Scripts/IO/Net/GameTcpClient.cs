@@ -89,10 +89,7 @@ namespace IO.Net
                             // TODO: send message to board main thread
                             // Board.SetGameState(gameRes);
                         }
-                        else if (!_taskMap.ContainsKey(state))
-                        {
-                        }
-                        else
+                        else if (_taskMap.ContainsKey(state))
                         {
                             _taskMap[state].SetResult(buf);
                         }

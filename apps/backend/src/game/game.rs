@@ -119,10 +119,10 @@ mod tests {
         let player0 = Arc::new(Player::new(0, String::from("test")));
         let player1 = Arc::new(Player::new(1, String::from("test1")));
         let game = Game::new(0, vec![player0.clone(), player1.clone()]);
-        let person_second = game.get_players();
+        let players = game.get_players();
         assert_eq!(
             game.get_next_turn_player().player,
-            person_second.get(1).unwrap().player
+            players.get(1).unwrap().player
         );
         Ok(())
     }
@@ -132,10 +132,10 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player0 = Arc::new(Player::new(0, String::from("test")));
         let game = Game::new(0, vec![player0.clone()]);
-        let person_second = game.get_players();
+        let players = game.get_players();
         assert_eq!(
             game.get_next_turn_player().player,
-            person_second.get(0).unwrap().player
+            players.get(0).unwrap().player
         );
         Ok(())
     }

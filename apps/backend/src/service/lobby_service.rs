@@ -73,6 +73,7 @@ impl LobbyService {
                             Arc::new(ResponseData::LobbyBroadcast(LobbyBroadcast {
                                 event: LobbyEvent::Join as i32,
                                 lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby.clone())),
+                                cards: None,
                             })),
                         ))
                         .await
@@ -119,6 +120,7 @@ impl LobbyService {
                                     false => LobbyEvent::Leave as i32,
                                 },
                                 lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby)),
+                                cards: None,
                             })),
                         ))
                         .await

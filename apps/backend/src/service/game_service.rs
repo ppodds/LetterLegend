@@ -15,6 +15,8 @@ use crate::frame::{Response, ResponseData};
 #[cfg(not(test))]
 use crate::model::game::broadcast::GameEvent;
 #[cfg(not(test))]
+use crate::model::game::cards::Cards;
+#[cfg(not(test))]
 use crate::model::lobby::broadcast::{LobbyBroadcast, LobbyEvent};
 #[cfg(not(test))]
 use crate::model::{game::broadcast::GameBroadcast, state::State};
@@ -79,6 +81,7 @@ impl GameService {
                         Arc::new(ResponseData::LobbyBroadcast(LobbyBroadcast {
                             event: LobbyEvent::Start as i32,
                             lobby: None,
+                            cards: Some(Cards::from(&game_player.get_cards())),
                         })),
                     ))
                     .await
@@ -216,7 +219,6 @@ impl GameService {
             }
         }
     }
-
 
     pub fn shuffle(
         &self,

@@ -1,5 +1,4 @@
 use crate::frame::Request;
-use crate::game::card::Card;
 use crate::model::game::cancel::CancelResponse;
 use crate::service::game_service::GameService;
 use crate::{
@@ -63,9 +62,7 @@ impl Controller for CancelController {
             return Err("card not place in this turn".into());
         }
         self.game_service.remove_selected_tile(req.x, req.y, game);
-        let mut return_card = Card::new(card.char);
-        return_card.used = false;
-        game_player.return_cancel_card(return_card);
+        game_player.return_cancel_card(card.char);
         Ok(ResponseData::Cancel(CancelResponse {
             success: true,
             cards: Some(crate::model::game::cards::Cards::from(

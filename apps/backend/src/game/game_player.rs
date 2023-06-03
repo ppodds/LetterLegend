@@ -71,10 +71,10 @@ impl GamePlayer {
         card
     }
 
-    pub fn return_cancel_card(&self, card: Card) {
+    pub fn return_cancel_card(&self, char: char) {
         let mut cards = self.cards.lock().unwrap();
         for i in 0..cards.len() {
-            if cards[i].used == true && cards[i].char == card.char {
+            if cards[i].used && cards[i].char == char {
                 cards[i].used = false;
                 break;
             }

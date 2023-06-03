@@ -53,7 +53,7 @@ impl Controller for SetTileController {
             None => return Err("Player not found".into()),
         };
         let symbol = game_player.take_card(req.card_index as usize);
-        if symbol.used == true {
+        if symbol.used {
             return Err("Card has used".into());
         }
         let turn_player = game.get_player_in_this_turn();

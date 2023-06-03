@@ -35,6 +35,7 @@ impl TryFrom<u8> for Operation {
             9 => Ok(Operation::SetTile),
             10 => Ok(Operation::FinishTurn),
             11 => Ok(Operation::GetNewCard),
+            12 => Ok(Operation::Cancel),
             _ => Err("invalid operation".into()),
         }
     }

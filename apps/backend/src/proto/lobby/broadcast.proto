@@ -4,6 +4,7 @@ package lobby.broadcast;
 option csharp_namespace = "Protos.Lobby";
 
 import "lobby/lobby.proto";
+import "game/cards.proto";
 
 enum LobbyEvent {
   JOIN = 0;
@@ -15,4 +16,5 @@ enum LobbyEvent {
 message LobbyBroadcast {
   LobbyEvent event = 1;
   optional lobby.Lobby lobby = 2;
+  optional game.cards.Cards cards = 3;
 }

@@ -78,6 +78,19 @@ impl Game {
     pub fn get_player_in_this_turn(&self) -> Arc<GamePlayer> {
         self.turn_queue.lock().unwrap().front().unwrap().clone()
     }
+
+    pub fn get_next_turn_player(&self) -> Arc<GamePlayer> {
+        if self.get_players().len() == 1 {
+            return self.get_player_in_this_turn();
+        }
+        self.turn_queue
+            .lock()
+            .unwrap()
+            .iter()
+            .nth(1)
+            .unwrap()
+            .clone()
+    }
 }
 
 #[cfg(test)]

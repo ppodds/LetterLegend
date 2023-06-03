@@ -74,6 +74,8 @@ impl LobbyService {
                                 event: LobbyEvent::Join as i32,
                                 lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby.clone())),
                                 cards: None,
+                                current_player: None,
+                                next_player: None,
                             })),
                         ))
                         .await
@@ -121,6 +123,8 @@ impl LobbyService {
                                 },
                                 lobby: Some(crate::model::lobby::lobby::Lobby::from(lobby)),
                                 cards: None,
+                                current_player: None,
+                                next_player: None,
                             })),
                         ))
                         .await

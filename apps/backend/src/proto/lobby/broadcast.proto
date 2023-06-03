@@ -5,6 +5,7 @@ option csharp_namespace = "Protos.Lobby";
 
 import "lobby/lobby.proto";
 import "game/cards.proto";
+import "player/player.proto";
 
 enum LobbyEvent {
   JOIN = 0;
@@ -17,4 +18,6 @@ message LobbyBroadcast {
   LobbyEvent event = 1;
   optional lobby.Lobby lobby = 2;
   optional game.cards.Cards cards = 3;
+  optional player.player.Player current_player = 4;
+  optional player.player.Player next_player = 5;
 }

@@ -20,6 +20,9 @@ public class Board : MonoBehaviour
             {
                 var tempBlock = Instantiate(block, new Vector3(i * scale - 17, j * scale - 17, 0f), Quaternion.identity,
                     GameObject.Find("Board").transform);
+                var blockScript = tempBlock.GetComponent<Block>();
+                blockScript.SetX(i);
+                blockScript.SetY(j);
                 _blocks.Add(tempBlock);
             }
         }
@@ -35,27 +38,32 @@ public class Board : MonoBehaviour
 
     private async void MouseReleased(Vector2 position)
     {
-        for (var i = 0; i < _blocks.Count; i++)
+        foreach (var tempBlock in _blocks)
         {
-            var tempBlock = _blocks[i];
-            if (tempBlock.GetComponent<Block>().Contains(position) && _handField.GetSelectBlock())
+            if (!tempBlock.GetComponent<Block>().Contains(position)
+                || tempBlock.GetComponent<Block>().GetText() != ""
+                || !_handField.GetSelectBlock())
             {
-                var index = _handField.GetIndex();
-                if (index == null)
-                {
-                    throw new Exception("HandField GetIndex failed");
-                }
-
-                uint x = (uint)i % 26;
-                uint y = (uint)i / 26;
-                var res = await GameManager.Instance.GameTcpClient.SetTile(x, y, index.Value);
-                if (res)
-                {
-                    tempBlock.GetComponent<Block>().SetText(_handField.GetText());
-                    _handField.DeleteSelectObject();
-                    return;
-                }
+                continue;
             }
+
+            var index = _handField.GetIndex();
+            if (index == null)
+            {
+                throw new Exception("HandField GetIndex failed");
+            }
+
+            var x = tempBlock.GetComponent<Block>().GetX();
+            var y = tempBlock.GetComponent<Block>().GetY();
+            var res = await GameManager.Instance.GameTcpClient.SetTile(x, y, index.Value);
+            if (!res)
+            {
+                continue;
+            }
+
+            tempBlock.GetComponent<Block>().SetText(_handField.GetText());
+            _handField.DeleteSelectObject();
+            return;
         }
 
         _handField.ResetPosition();

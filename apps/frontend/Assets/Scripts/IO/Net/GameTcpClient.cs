@@ -18,20 +18,95 @@ namespace IO.Net
     {
         private readonly string _host;
         private readonly int _port;
-
         private readonly TcpClient _client;
+        private readonly Dictionary<uint, TaskCompletionSource<byte[]>> _taskMap;
+        private readonly System.Random _random;
+        private Task _receiveLoop;
+        private readonly CancellationTokenSource _cancellationTokenSource;
+        public RoomPanel RoomPanel { get; set; }
+        public Board Board { get; set; }
+
+        enum Broadcast
+        {
+            Lobby = 0,
+            Game = 1
+        }
 
         public GameTcpClient(string host, int port)
         {
             _host = host;
             _port = port;
-
             _client = new TcpClient();
+            _taskMap = new Dictionary<uint, TaskCompletionSource<byte[]>>();
+            _random = new System.Random();
+            _cancellationTokenSource = new CancellationTokenSource();
+        }
+
+        public bool IsConnected()
+        {
+            return _client.Connected;
+        }
+
+        private void Loop()
+        {
+            var token = _cancellationTokenSource.Token;
+            _receiveLoop = Task.Run(async () =>
+            {
+                var stream = _client.GetStream();
+                while (true)
+                {
+                    try
+                    {
+                        if (token.IsCancellationRequested)
+                            token.ThrowIfCancellationRequested();
+                        // read state
+                        var buf = new byte[4];
+                        var n = await stream.ReadAsync(buf);
+                        if (n != buf.Length)
+                            throw new WrongProtocolException();
+                        var state = BitConverter.ToUInt32(buf);
+                        // read length
+                        buf = new byte[4];
+                        n = await stream.ReadAsync(buf);
+                        if (n != buf.Length)
+                            throw new WrongProtocolException();
+                        var resLength = BitConverter.ToUInt32(buf);
+                        if (resLength == 0)
+                            _taskMap[state].SetResult(Array.Empty<byte>());
+                        // read data
+                        buf = new byte[resLength];
+                        n = await stream.ReadAsync(buf);
+                        if (n != buf.Length)
+                            throw new WrongProtocolException();
+                        if (state == (uint)(Broadcast.Lobby))
+                        {
+                            var lobbyRes = LobbyBroadcast.Parser.ParseFrom(buf);
+                            RoomPanel.BroadcastEnqueue(lobbyRes);
+                        }
+                        else if (state == (uint)(Broadcast.Game))
+                        {
+                            var gameRes = GameBroadcast.Parser.ParseFrom(buf);
+                            // TODO: send message to board main thread
+                            // Board.SetGameState(gameRes);
+                        }
+                        else if (_taskMap.ContainsKey(state))
+                        {
+                            _taskMap[state].SetResult(buf);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogException(ex);
+                        break;
+                    }
+                }
+            }, token);
         }
 
         public async Task ConnectAsync(string name)
         {
             await _client.ConnectAsync(_host, _port);
+            Loop();
             var req = new ConnectRequest()
             {
                 Name = name
@@ -84,7 +159,6 @@ namespace IO.Net
 
             var stream = new MemoryStream();
             req.WriteTo(stream);
-
             var res = JoinResponse.Parser.ParseFrom(await Rpc(Operation.JoinLobby, stream.ToArray()));
             if (!res.Success)
             {
@@ -114,7 +188,7 @@ namespace IO.Net
             return true;
         }
 
-        public async Task<Protos.Game.Board> Start()
+        public async Task<Protos.Game.Board> StartGame()
         {
             var res = StartResponse.Parser.ParseFrom(await Rpc(Operation.StartGame));
             if (!res.Success)
@@ -153,6 +227,7 @@ namespace IO.Net
             {
                 throw new Exception("get new card failed");
             }
+
             return res.Cards.ToList();
         }
 
@@ -174,6 +249,26 @@ namespace IO.Net
             }
         }
 
+        public async Task<bool> Cancel(uint x, uint y)
+        {
+            var req = new CancelRequest()
+            {
+                X = x,
+                Y = y,
+            };
+
+            var stream = new MemoryStream();
+            req.WriteTo(stream);
+
+            var res = CancelResponse.Parser.ParseFrom(await Rpc(Operation.Cancel, stream.ToArray()));
+            if (!res.Success)
+            {
+                throw new Exception("cancel failed");
+            }
+
+            return res.Success;
+        }
+
         public Task Reconnect()
         {
             throw new NotImplementedException();
@@ -187,6 +282,7 @@ namespace IO.Net
                 throw new Exception("disconnect failed");
             }
 
+            _cancellationTokenSource.Cancel();
             _client.Close();
         }
 
@@ -195,41 +291,31 @@ namespace IO.Net
             return await Rpc(operation, Array.Empty<byte>(), readResponse);
         }
 
-        private async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true,
-            CancellationToken token = default)
+        private async Task<byte[]> Rpc(Operation operation, byte[] data, bool readResponse = true)
         {
-            await RpcCall(operation, data);
-            var result = readResponse ? await ReadRpcResponse(token) : null;
+            uint thirtyBits = (uint)_random.Next(2, 1 << 30);
+            uint twoBits = (uint)_random.Next(1 << 2);
+            uint state = (thirtyBits << 2) | twoBits;
+            var responseTaskCompletionSource = new TaskCompletionSource<byte[]>();
+            _taskMap.Add(state, responseTaskCompletionSource);
+            await RpcCall(operation, data, state);
+            var result = readResponse ? await _taskMap[state].Task : null;
+            _taskMap.Remove(state);
             return result;
         }
 
-        private async Task RpcCall(Operation operation, byte[] data)
+        private async Task RpcCall(Operation operation, byte[] data, uint state)
         {
             var stream = _client.GetStream();
+            var t = BitConverter.GetBytes(state);
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(t);
             var outputStream = new MemoryStream();
             await outputStream.WriteAsync(new byte[] { (byte)operation, 0, 0, 0 });
+            await outputStream.WriteAsync(t);
             await outputStream.WriteAsync(BitConverter.GetBytes(data.Length));
             await outputStream.WriteAsync(data);
             await stream.WriteAsync(outputStream.ToArray());
-        }
-
-        private async Task<byte[]> ReadRpcResponse(CancellationToken token = default)
-        {
-            var stream = _client.GetStream();
-            var buf = new byte[4];
-            var n = await stream.ReadAsync(buf, token);
-            token.ThrowIfCancellationRequested();
-            if (n != buf.Length)
-                throw new WrongProtocolException();
-            var resLength = BitConverter.ToUInt32(buf);
-            if (resLength == 0)
-                return Array.Empty<byte>();
-            buf = new byte[resLength];
-            n = await stream.ReadAsync(buf, token);
-            token.ThrowIfCancellationRequested();
-            if (n != buf.Length)
-                throw new WrongProtocolException();
-            return buf;
         }
     }
 }

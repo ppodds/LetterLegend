@@ -1,4 +1,5 @@
 use crate::frame::Request;
+use crate::game::card::Card;
 use crate::model::game::cancel::CancelResponse;
 use crate::service::game_service::GameService;
 use crate::{
@@ -48,7 +49,7 @@ impl Controller for CancelController {
             None => return Err("Player not in a game".into()),
         };
 
-        match game.get_player(player.id) {
+        let game_player = match game.get_player(player.id) {
             Some(game_player) => game_player,
             None => return Err("Player not found".into()),
         };
@@ -62,7 +63,15 @@ impl Controller for CancelController {
             return Err("card not place in this turn".into());
         }
         self.game_service.remove_selected_tile(req.x, req.y, game);
-        Ok(ResponseData::Cancel(CancelResponse { success: true }))
+        let mut return_card = Card::new(card.char);
+        return_card.used = false;
+        game_player.return_cancel_card(return_card);
+        Ok(ResponseData::Cancel(CancelResponse {
+            success: true,
+            cards: Some(crate::model::game::cards::Cards::from(
+                &game_player.get_cards(),
+            )),
+        }))
     }
 }
 
@@ -114,13 +123,13 @@ mod tests {
     }
 
     #[test]
-    fn handle_request_with_test_card_place_in_this_turn_should_cancel(
+    fn handle_request_with_cancel_card_in_wrong_turn_should_return_err(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let lobby_service = Arc::new(LobbyService::new());
         let game_service = Arc::new(GameService::new());
         let controller = CancelController::new(
             Arc::new(PlayerService::new(
-                Arc::new(LobbyService::new()),
+                lobby_service.clone(),
                 game_service.clone(),
             )),
             game_service.clone(),
@@ -133,7 +142,52 @@ mod tests {
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
         let game = game_service.start_game(player.clone(), lobby.clone())?;
-        let tile = Tile::new('z', player, 1);
+        let tile = Tile::new(
+            game.get_player_in_this_turn().get_cards()[0].char,
+            player,
+            game.get_turns(),
+        );
+        controller
+            .game_service
+            .place_tile_on_board(game.clone(), tile, 1, 1);
+        game.next_turn();
+        assert!(controller
+            .handle_request(
+                Request::new(
+                    0,
+                    Arc::new(RequestData::Cancel(CancelRequest { x: 1, y: 1 })),
+                ),
+                RequestContext { client_id: 0 },
+            )
+            .is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn handle_request_with_cancel_card_should_return_to_cards(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let lobby_service = Arc::new(LobbyService::new());
+        let game_service = Arc::new(GameService::new());
+        let controller = CancelController::new(
+            Arc::new(PlayerService::new(
+                lobby_service.clone(),
+                game_service.clone(),
+            )),
+            game_service.clone(),
+        );
+
+        let player = controller
+            .player_service
+            .add_player(0, String::from("test"));
+        let lobby = lobby_service.create_lobby(player.clone(), 4)?;
+        let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
+        lobby_player.set_ready(true);
+        let game = game_service.start_game(player.clone(), lobby.clone())?;
+        let tile = Tile::new(
+            game.get_player_in_this_turn().get_cards()[0].char,
+            player,
+            1,
+        );
         controller
             .game_service
             .place_tile_on_board(game.clone(), tile, 1, 1);
@@ -144,7 +198,7 @@ mod tests {
             ),
             RequestContext { client_id: 0 },
         )?;
-        assert!(game.get_board().lock().unwrap().tiles[1][1].is_none());
+        assert!(game.get_player_in_this_turn().get_cards()[0].used == false);
         Ok(())
     }
 }

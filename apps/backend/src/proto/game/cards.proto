@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package game.cards;
+option csharp_namespace = "Protos.Game";
+
+import "game/card.proto";
+
+message Cards {
+    repeated card.Card cards = 1;
+}

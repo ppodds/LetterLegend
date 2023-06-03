@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    game::{game::Game, game_player::GamePlayer, tile::Tile},
+    game::{card::Card, game::Game, game_player::GamePlayer, tile::Tile},
     lobby::lobby::Lobby,
     player::Player,
 };
@@ -216,11 +216,13 @@ impl GameService {
             }
         }
     }
+
+
     pub fn shuffle(
         &self,
         #[cfg(not(test))] game: Arc<Game>,
         game_player: Arc<GamePlayer>,
-    ) -> Result<Vec<Option<char>>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Vec<Card>, Box<dyn Error + Send + Sync>> {
         if game_player.get_has_shuffled() {
             return Err("Player has shuffled in this turn".into());
         }

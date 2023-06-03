@@ -52,10 +52,10 @@ impl Controller for SetTileController {
             Some(game_player) => game_player,
             None => return Err("Player not found".into()),
         };
-        let symbol = match game_player.take_card(req.card_index as usize) {
-            Some(symbol) => symbol,
-            None => return Err("Player doesn't have this card".into()),
-        };
+        let symbol = game_player.take_card(req.card_index as usize);
+        if symbol.used == true {
+            return Err("Card has used".into());
+        }
         let turn_player = game.get_player_in_this_turn();
         if turn_player != game_player {
             return Err("Player can't place tile when not his turn".into());
@@ -69,7 +69,7 @@ impl Controller for SetTileController {
         self.game_service.place_tile_on_board(
             game.clone(),
             Tile {
-                char: symbol,
+                char: symbol.char,
                 owner: player,
                 turn: game.get_turns(),
             },

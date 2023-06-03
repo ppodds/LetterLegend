@@ -93,7 +93,6 @@ mod tests {
 
     use super::*;
     #[test]
-
     fn handle_request_with_test_user_in_his_turn_should_set_tile(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new());
@@ -111,22 +110,22 @@ mod tests {
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
-        controller.game_service.start_game(player, lobby)?;
-        assert!(controller
-            .handle_request(
-                Request::new(
-                    0,
-                    Arc::new(RequestData::SetTile(SetTileRequest {
-                        x: 1,
-                        y: 1,
-                        card_index: 1,
-                    }))
-                ),
-                RequestContext { client_id: 0 },
-            )
-            .is_ok());
+        let game = controller.game_service.start_game(player, lobby)?;
+        controller.handle_request(
+            Request::new(
+                0,
+                Arc::new(RequestData::SetTile(SetTileRequest {
+                    x: 1,
+                    y: 1,
+                    card_index: 1,
+                })),
+            ),
+            RequestContext { client_id: 0 },
+        )?;
+        assert!(game.get_board().lock().unwrap().tiles[1][1].is_some());
         Ok(())
     }
+
     #[test]
     fn handle_request_with_test_user_is_not_his_round_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {

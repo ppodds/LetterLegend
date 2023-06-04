@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Protos.Game;
 using UnityEngine;
 
 public class Board : MonoBehaviour
 {
+    public PlayerShowText playerShowText;
     public GameObject block;
     private readonly List<GameObject> _blocks = new List<GameObject>();
     private MouseEventSystem _mouseEventSystem;
@@ -15,6 +17,7 @@ public class Board : MonoBehaviour
 
     private void Awake()
     {
+        GameManager.Instance.GameTcpClient.Board = this;
         var scale = block.transform.localScale.x;
         for (var i = 0; i < 26; i++)
         {
@@ -55,19 +58,18 @@ public class Board : MonoBehaviour
         switch (res.Event)
         {
             case GameEvent.Destroy:
-                Debug.Log("destroy");
                 //滾回房間
                 break;
             case GameEvent.Leave:
-                Debug.Log("Leave");
-                Debug.Log(res.Players);
+                //Debug.Log(res.Players);
                 break;
             case GameEvent.Shuffle:
-                Debug.Log("Shuffle");
                 break;
             case GameEvent.PlaceTile:
-                Debug.Log("PlaceTile");
-                Debug.Log(res.Board);
+                SetBoard(res.Board);
+                break;
+            case GameEvent.FinishTurn:
+                playerShowText.SetPlayerName(res.CurrentPlayer, res.NextPlayer);
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -116,7 +118,7 @@ public class Board : MonoBehaviour
     {
         return _boardMax;
     }
-    
+
     public void BroadcastEnqueue(GameBroadcast gameBroadcast)
     {
         lock (_gameBroadcasts)
@@ -125,11 +127,17 @@ public class Board : MonoBehaviour
         }
     }
 
-    /*public void SetBoard(Protos.Game.Board board)
+    private void SetBoard(Protos.Game.Board board)
     {
-        for (int i = 0; i < board.CalculateSize(); i++)
+        for (var i = 0; i < board.Rows.Count; i++)
         {
-            _blocks[i] = board.Rows.
+            for (var j = 0; j < board.Rows[i].Columns.Count; j++)
+            {
+                if (board.Rows[i].Columns[j].Tile != null)
+                {
+                    _blocks[i * 26 + j].GetComponent<Block>().SetText(board.Rows[i].Columns[j].Tile.Char);
+                }
+            }
         }
-    }*/
+    }
 }

@@ -46,7 +46,7 @@ impl Controller for DisconnectController {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
+    use std::{collections::HashSet, error::Error};
 
     use crate::service::{game_service::GameService, lobby_service::LobbyService};
 
@@ -57,7 +57,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let controller = DisconnectController::new(Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         )));
         controller
             .player_service
@@ -74,7 +74,7 @@ mod tests {
     fn handle_request_with_user_not_exist_should_return_error() -> Result<(), Box<dyn Error>> {
         let controller = DisconnectController::new(Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         )));
         assert!(controller
             .handle_request(

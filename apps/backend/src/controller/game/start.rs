@@ -74,7 +74,7 @@ impl Controller for StartController {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
+    use std::{collections::HashSet, error::Error};
 
     use crate::service::lobby_service::{self, LobbyService};
 
@@ -86,9 +86,9 @@ mod tests {
         let controller = StartController::new(
             Arc::new(PlayerService::new(
                 Arc::new(LobbyService::new()),
-                Arc::new(GameService::new()),
+                Arc::new(GameService::new(HashSet::new())),
             )),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         );
         let player = controller
             .player_service

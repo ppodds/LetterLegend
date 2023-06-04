@@ -5,16 +5,20 @@ option csharp_namespace = "Protos.Game";
 
 import "game/board.proto";
 import "player/players.proto";
+import "player/player.proto";
 
 enum GameEvent {
   PLACE_TILE = 0;
   SHUFFLE = 1;
   LEAVE = 2;
   DESTROY = 3;
+  FINISH_TURN = 4;
 }
 
 message GameBroadcast {
   GameEvent event = 1;
   optional board.Board board = 2;
   optional player.players.Players players = 3;
+  optional player.player.Player current_player = 4;
+  optional player.player.Player next_player = 5;
 }

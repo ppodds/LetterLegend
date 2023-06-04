@@ -1,7 +1,13 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     error::Error,
     sync::{Arc, Mutex},
+};
+
+#[cfg(not(test))]
+use tokio::{
+    fs::File,
+    io::{AsyncBufReadExt, BufReader},
 };
 
 use crate::{
@@ -25,13 +31,31 @@ use crate::model::{game::broadcast::GameBroadcast, state::State};
 pub struct GameService {
     next_game_id: Mutex<u32>,
     games: Mutex<HashMap<u32, Arc<Game>>>,
+    wordlist: HashSet<String>,
 }
 
 impl GameService {
-    pub fn new() -> Self {
+    #[cfg(not(test))]
+    pub async fn new() -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let mut wordlist = HashSet::new();
+        let file = File::open("assets/wordlist.txt").await?;
+        let mut reader = BufReader::new(file).lines();
+        while let Some(line) = reader.next_line().await? {
+            wordlist.insert(line);
+        }
+        Ok(Self {
+            next_game_id: Mutex::new(0),
+            games: Mutex::new(HashMap::new()),
+            wordlist,
+        })
+    }
+
+    #[cfg(test)]
+    pub fn new(wordlist: HashSet<String>) -> Self {
         Self {
             next_game_id: Mutex::new(0),
             games: Mutex::new(HashMap::new()),
+            wordlist,
         }
     }
 
@@ -135,6 +159,8 @@ impl GameService {
                                 players: Some(crate::model::player::players::Players::from(
                                     &game.get_players(),
                                 )),
+                                current_player: None,
+                                next_player: None,
                             })),
                         ))
                         .await
@@ -189,6 +215,8 @@ impl GameService {
                                 event: GameEvent::PlaceTile as i32,
                                 board: t,
                                 players: None,
+                                current_player: None,
+                                next_player: None,
                             })),
                         ))
                         .await
@@ -198,6 +226,46 @@ impl GameService {
                 });
             }
         }
+    }
+
+    pub fn finish_turn(&self, game: Arc<Game>) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if !game.get_board().lock().unwrap().validate(&self.wordlist) {
+            return Err("invalid word".into());
+        }
+
+        game.next_turn();
+        #[cfg(not(test))]
+        {
+            for game_player in game.get_players() {
+                if game_player == game.get_player_in_this_turn() {
+                    continue;
+                }
+                let game = game.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = game_player
+                        .player
+                        .send_message(Response::new(
+                            State::GameBroadcast as u32,
+                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                                event: GameEvent::Leave as i32,
+                                board: None,
+                                players: None,
+                                current_player: Some(crate::model::player::player::Player::from(
+                                    game.get_player_in_this_turn(),
+                                )),
+                                next_player: Some(crate::model::player::player::Player::from(
+                                    game.get_next_turn_player(),
+                                )),
+                            })),
+                        ))
+                        .await
+                    {
+                        eprintln!("Error sending game broadcast: {}", e);
+                    }
+                });
+            }
+        }
+        Ok(())
     }
 
     pub fn remove_selected_tile(&self, x: u32, y: u32, game: Arc<Game>) {
@@ -222,6 +290,8 @@ impl GameService {
                                 event: GameEvent::PlaceTile as i32,
                                 board: t,
                                 players: None,
+                                current_player: None,
+                                next_player: None,
                             })),
                         ))
                         .await
@@ -258,6 +328,8 @@ impl GameService {
                                 event: GameEvent::Shuffle as i32,
                                 board: None,
                                 players: None,
+                                current_player: None,
+                                next_player: None,
                             })),
                         ))
                         .await
@@ -278,7 +350,7 @@ mod tests {
     #[test]
     fn start_game_with_test_player_in_test_lobby_should_start_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let leader = Arc::new(Player::new(0, "test".to_string()));
         let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
         lobby.get_player(leader.id).unwrap().set_ready(true);
@@ -289,7 +361,7 @@ mod tests {
     #[test]
     fn start_game_with_test_player_not_in_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let leader = Arc::new(Player::new(0, "test1".to_string()));
         let player = Arc::new(Player::new(1, "test2".to_string()));
         assert!(game_service
@@ -301,7 +373,7 @@ mod tests {
     #[test]
     fn start_game_with_not_leader_should_return_error() -> Result<(), Box<dyn Error + Send + Sync>>
     {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let leader = Arc::new(Player::new(0, "test".to_string()));
         let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
         let player = Arc::new(Player::new(1, "test2".to_string()));
@@ -313,7 +385,7 @@ mod tests {
     #[test]
     fn start_game_with_players_not_ready_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let leader = Arc::new(Player::new(0, "test".to_string()));
         let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
         assert!(game_service.start_game(leader, lobby).is_err());
@@ -321,8 +393,41 @@ mod tests {
     }
 
     #[test]
+    fn finish_turn_when_board_is_broken_should_return_error(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new(HashSet::new());
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let player1 = Arc::new(Player::new(1, String::from("test2")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player1)?;
+        lobby.get_player(0).unwrap().set_ready(true);
+        lobby.get_player(1).unwrap().set_ready(true);
+        let game = game_service.start_game(player.clone(), lobby)?;
+        {
+            game.get_board().lock().unwrap().tiles[0][0] = Some(Tile::new('a', player.clone(), 1));
+        }
+        assert!(game_service.finish_turn(game).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn finish_turn_when_board_is_legal_should_finish_turn(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new(HashSet::new());
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let player1 = Arc::new(Player::new(1, String::from("test2")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player1)?;
+        lobby.get_player(0).unwrap().set_ready(true);
+        lobby.get_player(1).unwrap().set_ready(true);
+        let game = game_service.start_game(player.clone(), lobby)?;
+        assert!(game_service.finish_turn(game).is_ok());
+        Ok(())
+    }
+
+    #[test]
     fn get_game_with_game_id_should_return_game() -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         game_service
             .games
             .lock()
@@ -334,7 +439,7 @@ mod tests {
 
     #[test]
     fn remove_game_with_test_game_should_be_remove() -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let game = Arc::new(Game::new(0, Vec::new()));
         game_service.games.lock().unwrap().insert(0, game.clone());
         game_service.remove_game(game)?;
@@ -345,7 +450,7 @@ mod tests {
     #[test]
     fn remove_game_with_test_player_and_with_test_game_test_player_game_should_be_none(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let player = Arc::new(Player::new(0, "test".to_string()));
         let game = Arc::new(Game::new(0, vec![player.clone()]));
         game_service.games.lock().unwrap().insert(0, game.clone());
@@ -357,7 +462,7 @@ mod tests {
     #[test]
     fn get_games_with_test_games_should_return_test_games(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let game1 = Arc::new(Game::new(0, Vec::new()));
         let game2 = Arc::new(Game::new(1, Vec::new()));
         game_service.games.lock().unwrap().insert(0, game1.clone());
@@ -372,7 +477,7 @@ mod tests {
     #[test]
     fn remove_player_from_game_with_test_player_should_remove_the_player(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let player = Arc::new(Player::new(0, String::from("test1")));
         let game = Arc::new(Game::new(
             0,
@@ -391,7 +496,7 @@ mod tests {
     #[test]
     fn remove_player_from_game_with_test_player_and_game_players_amount_equal_0_should_destroy_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let player = Arc::new(Player::new(0, String::from("test1")));
         let game = Arc::new(Game::new(0, vec![player.clone()]));
         player.set_game(Some(game.clone()));
@@ -404,7 +509,7 @@ mod tests {
     #[test]
     fn remove_player_from_game_with_test_player_should_return_test_user(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new();
+        let game_service = GameService::new(HashSet::new());
         let player = Arc::new(Player::new(0, String::from("test1")));
         let game = Arc::new(Game::new(0, vec![player.clone()]));
         player.set_game(Some(game.clone()));

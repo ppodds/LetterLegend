@@ -2,24 +2,26 @@ use std::collections::HashSet;
 
 use super::tile::Tile;
 
+const BOARD_SIZE: usize = 26;
+
 #[derive(Debug, Clone)]
 pub struct Board {
-    pub tiles: [[Option<Tile>; 26]; 26],
+    pub tiles: [[Option<Tile>; BOARD_SIZE]; BOARD_SIZE],
 }
 
 impl Board {
     pub fn new() -> Self {
         // workaround
         const INIT: Option<Tile> = None;
-        const ARR: [Option<Tile>; 26] = [INIT; 26];
+        const ARR: [Option<Tile>; BOARD_SIZE] = [INIT; BOARD_SIZE];
         Self { tiles: [ARR; 26] }
     }
 
     pub fn validate(&self, dict: &HashSet<String>) -> bool {
         let mut current_word: Option<String> = None;
-        let mut is_horizontal_word_arr: [[bool; 26]; 26] = [[false; 26]; 26];
-        for row in 0..26 {
-            for col in 0..26 {
+        let mut is_horizontal_word_arr = [[false; BOARD_SIZE]; BOARD_SIZE];
+        for row in 0..BOARD_SIZE {
+            for col in 0..BOARD_SIZE {
                 match &self.tiles[row][col] {
                     Some(tile) => {
                         if current_word.is_some() {
@@ -42,14 +44,20 @@ impl Board {
                         None => (),
                     },
                 }
-                if col == 25 {
+                if col == BOARD_SIZE - 1 && current_word.is_some() {
+                    let word = current_word.unwrap();
+                    if dict.contains(&word) {
+                        for k in 0..word.len() {
+                            is_horizontal_word_arr[row][col - k] = true;
+                        }
+                    }
                     current_word = None;
                 }
             }
         }
         current_word = None;
-        for col in 0..26 {
-            for row in 0..26 {
+        for col in 0..BOARD_SIZE {
+            for row in 0..BOARD_SIZE {
                 match &self.tiles[row][col] {
                     Some(tile) => {
                         if current_word.is_some() {
@@ -84,7 +92,11 @@ impl Board {
                         None => (),
                     },
                 }
-                if row == 25 {
+                if row == BOARD_SIZE - 1 && current_word.is_some() {
+                    let word = current_word.unwrap();
+                    if !dict.contains(&word) {
+                        return false;
+                    }
                     current_word = None;
                 }
             }
@@ -147,6 +159,40 @@ mod tests {
         board.tiles[1][1] = Some(h_tile);
         board.tiles[2][2] = Some(e_tile);
         assert!(!board.validate(&wordlist));
+        Ok(())
+    }
+
+    #[test]
+    fn validate_with_the_word_jump_to_next_row_should_return_true(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let mut wordlist = HashSet::new();
+        wordlist.insert(String::from("the"));
+        let mut board = Board::new();
+        let player = Arc::new(Player::new(0, String::from("test")));
+        let t_tile = Tile::new('t', player.clone(), 1);
+        let h_tile = Tile::new('h', player.clone(), 1);
+        let e_tile = Tile::new('e', player, 1);
+        board.tiles[0][23] = Some(t_tile);
+        board.tiles[0][24] = Some(h_tile);
+        board.tiles[0][25] = Some(e_tile);
+        assert!(board.validate(&wordlist));
+        Ok(())
+    }
+
+    #[test]
+    fn validate_with_the_word_jump_to_next_col_should_return_true(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let mut wordlist = HashSet::new();
+        wordlist.insert(String::from("the"));
+        let mut board = Board::new();
+        let player = Arc::new(Player::new(0, String::from("test")));
+        let t_tile = Tile::new('t', player.clone(), 1);
+        let h_tile = Tile::new('h', player.clone(), 1);
+        let e_tile = Tile::new('e', player, 1);
+        board.tiles[23][0] = Some(t_tile);
+        board.tiles[24][0] = Some(h_tile);
+        board.tiles[25][0] = Some(e_tile);
+        assert!(board.validate(&wordlist));
         Ok(())
     }
 

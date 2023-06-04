@@ -56,14 +56,14 @@ impl Controller for CreateController {
 mod tests {
     use super::*;
     use crate::{model::lobby::create::CreateRequest, service::game_service::GameService};
-    use std::error::Error;
+    use std::{collections::HashSet, error::Error};
 
     #[test]
     fn handle_request_with_test_user_should_create_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let player_service = Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         ));
         player_service.add_player(0, String::from("test"));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
@@ -87,7 +87,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player_service = Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         ));
         player_service.add_player(0, String::from("test"));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
@@ -117,7 +117,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player_service = Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         ));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));
         assert!(controller
@@ -137,7 +137,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player_service = Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         ));
         let player = player_service.add_player(0, String::from("test"));
         let controller = CreateController::new(player_service, Arc::new(LobbyService::new()));

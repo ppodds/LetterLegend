@@ -87,15 +87,17 @@ impl PlayerService {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
+    use std::{collections::HashSet, error::Error};
 
     use super::*;
 
     #[test]
     fn add_player_with_test_user_online_player_map_should_include_test_user(
     ) -> Result<(), Box<dyn Error>> {
-        let service =
-            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
+        let service = PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new(HashSet::new())),
+        );
         service.add_player(0, String::from("test"));
         assert!(service.online_player_map.lock().unwrap().get(&0).is_some());
         Ok(())
@@ -104,8 +106,10 @@ mod tests {
     #[test]
     fn get_players_with_a_player_in_online_player_map_should_return_a_vec_with_that_player(
     ) -> Result<(), Box<dyn Error>> {
-        let service =
-            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
+        let service = PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new(HashSet::new())),
+        );
         service
             .online_player_map
             .lock()
@@ -119,7 +123,10 @@ mod tests {
     fn remove_player_with_a_player_in_lobby_should_remove_player_from_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let lobby_service = Arc::new(LobbyService::new());
-        let service = PlayerService::new(lobby_service.clone(), Arc::new(GameService::new()));
+        let service = PlayerService::new(
+            lobby_service.clone(),
+            Arc::new(GameService::new(HashSet::new())),
+        );
         let player = service.add_player(0, String::from("test"));
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         service.remove_player(player.clone())?;
@@ -131,7 +138,7 @@ mod tests {
     #[test]
     fn remove_player_with_a_player_in_game_should_remove_player_from_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = Arc::new(GameService::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let lobby_service = Arc::new(LobbyService::new());
         let service = PlayerService::new(lobby_service.clone(), game_service.clone());
         let player = service.add_player(0, String::from("test"));
@@ -147,8 +154,10 @@ mod tests {
     #[test]
     fn remove_player_with_a_player_not_existing_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let service =
-            PlayerService::new(Arc::new(LobbyService::new()), Arc::new(GameService::new()));
+        let service = PlayerService::new(
+            Arc::new(LobbyService::new()),
+            Arc::new(GameService::new(HashSet::new())),
+        );
         assert!(service
             .remove_player(Arc::new(Player::new(0, String::from("test"))))
             .is_err());

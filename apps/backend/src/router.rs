@@ -66,6 +66,8 @@ impl Router {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::{
         controller::control::connect::ConnectController,
         service::{
@@ -82,7 +84,7 @@ mod tests {
             Operation::Connect,
             Box::new(ConnectController::new(Arc::new(PlayerService::new(
                 Arc::new(LobbyService::new()),
-                Arc::new(GameService::new()),
+                Arc::new(GameService::new(HashSet::new())),
             )))),
         );
         assert!(router

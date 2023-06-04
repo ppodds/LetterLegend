@@ -1,26 +1,29 @@
+use std::error::Error;
 use std::sync::Arc;
 
 use crate::connection::Connection;
-use crate::controller::control::connect::ConnectController;
-use crate::controller::game::cancel::CancelController;
-use crate::controller::game::get_new_card::GetNewCardController;
-use crate::controller::game::set_tile::SetTileController;
-use crate::frame::{Frame, Response};
-use crate::router::{RequestContext, Router};
-use crate::service::lobby_service::LobbyService;
-use crate::service::player_service::PlayerService;
-use crate::{
-    controller::{
-        control::{disconnect::DisconnectController, heartbeat::HeartbeatController},
-        game::start::StartController,
-        lobby::{
-            create::CreateController, join::JoinController, list::ListController,
-            quit::QuitController, ready::ReadyController,
-        },
+#[cfg(not(test))]
+use crate::controller::{
+    control::{
+        connect::ConnectController, disconnect::DisconnectController,
+        heartbeat::HeartbeatController,
     },
-    operation::Operation,
-    service::game_service,
+    game::{
+        cancel::CancelController, finish_turn::FinishTurnController,
+        get_new_card::GetNewCardController, set_tile::SetTileController, start::StartController,
+    },
+    lobby::{
+        create::CreateController, join::JoinController, list::ListController, quit::QuitController,
+        ready::ReadyController,
+    },
 };
+use crate::frame::{Frame, Response};
+#[cfg(not(test))]
+use crate::operation::Operation;
+use crate::router::{RequestContext, Router};
+use crate::service::player_service::PlayerService;
+#[cfg(not(test))]
+use crate::service::{game_service::GameService, lobby_service::LobbyService};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::Mutex;
@@ -42,7 +45,7 @@ unsafe impl Send for Server {}
 unsafe impl Sync for Server {}
 
 impl Server {
-    pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let listener = TcpListener::bind(format!("{}:{}", self.host, self.port)).await?;
 
         let mut next_client_id = 0;
@@ -139,9 +142,10 @@ impl Server {
         }
     }
 
-    pub fn new() -> Self {
+    #[cfg(not(test))]
+    pub async fn new() -> Result<Self, Box<dyn Error + Send + Sync>> {
         let lobby_service = Arc::new(LobbyService::new());
-        let game_service = Arc::new(game_service::GameService::new());
+        let game_service = Arc::new(GameService::new().await?);
         let player_service = Arc::new(PlayerService::new(
             lobby_service.clone(),
             game_service.clone(),
@@ -213,12 +217,19 @@ impl Server {
                     player_service.clone(),
                     game_service.clone(),
                 )),
+            )
+            .register_controller(
+                Operation::FinishTurn,
+                Box::new(FinishTurnController::new(
+                    player_service.clone(),
+                    game_service.clone(),
+                )),
             );
-        Server {
+        Ok(Self {
             host: String::from("0.0.0.0"),
             port: 45678,
             player_service,
             router,
-        }
+        })
     }
 }

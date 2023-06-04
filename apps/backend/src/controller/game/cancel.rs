@@ -74,7 +74,7 @@ impl Controller for CancelController {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
+    use std::{collections::HashSet, error::Error};
 
     use crate::{
         game::tile::Tile, model::game::cancel::CancelRequest, service::lobby_service::LobbyService,
@@ -86,7 +86,7 @@ mod tests {
     fn handle_request_with_test_card_not_place_in_this_turn_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let lobby_service = Arc::new(LobbyService::new());
-        let game_service = Arc::new(GameService::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = CancelController::new(
             Arc::new(PlayerService::new(
                 Arc::new(LobbyService::new()),
@@ -123,7 +123,7 @@ mod tests {
     fn handle_request_with_cancel_card_in_wrong_turn_should_return_err(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let lobby_service = Arc::new(LobbyService::new());
-        let game_service = Arc::new(GameService::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = CancelController::new(
             Arc::new(PlayerService::new(
                 lobby_service.clone(),
@@ -164,7 +164,7 @@ mod tests {
     fn handle_request_with_cancel_card_should_return_to_cards(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let lobby_service = Arc::new(LobbyService::new());
-        let game_service = Arc::new(GameService::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = CancelController::new(
             Arc::new(PlayerService::new(
                 lobby_service.clone(),

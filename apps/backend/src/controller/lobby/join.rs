@@ -62,6 +62,7 @@ mod tests {
     use crate::model::lobby::join::JoinRequest;
     use crate::player::Player;
     use crate::service::game_service::GameService;
+    use std::collections::HashSet;
     use std::error::Error;
 
     #[test]
@@ -69,7 +70,7 @@ mod tests {
     {
         let player_service = Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         ));
         let leader = player_service.add_player(0, String::from("test1"));
         player_service.add_player(1, String::from("test2"));
@@ -97,7 +98,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player_service = Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         ));
         player_service.add_player(0, String::from("test1"));
         let lobby_service = Arc::new(LobbyService::new());
@@ -120,7 +121,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player_service = Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         ));
         player_service.add_player(0, String::from("test"));
         let lobby_service = Arc::new(LobbyService::new());
@@ -142,7 +143,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player_service = Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         ));
         let controller = JoinController::new(player_service, Arc::new(LobbyService::new()));
         assert!(controller

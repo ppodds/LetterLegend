@@ -55,14 +55,14 @@ mod tests {
         model::control::connect::ConnectRequest,
         service::{game_service::GameService, lobby_service::LobbyService},
     };
-    use std::error::Error;
+    use std::{collections::HashSet, error::Error};
 
     #[test]
     fn handle_request_with_test_user_should_create_test_user(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let controller = ConnectController::new(Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         )));
         controller.handle_request(
             Request::new(
@@ -84,7 +84,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let controller = ConnectController::new(Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         )));
         controller.handle_request(
             Request::new(

@@ -57,7 +57,7 @@ impl Controller for ReadyController {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
+    use std::{collections::HashSet, error::Error};
 
     use crate::service::{game_service::GameService, lobby_service::LobbyService};
 
@@ -68,7 +68,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let controller = ReadyController::new(Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         )));
         let lobby_service = LobbyService::new();
         let leader = controller
@@ -88,7 +88,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let controller = ReadyController::new(Arc::new(PlayerService::new(
             Arc::new(LobbyService::new()),
-            Arc::new(GameService::new()),
+            Arc::new(GameService::new(HashSet::new())),
         )));
         let lobby_service = LobbyService::new();
         let leader = controller

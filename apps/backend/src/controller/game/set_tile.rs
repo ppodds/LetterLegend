@@ -84,7 +84,7 @@ impl Controller for SetTileController {
 #[cfg(test)]
 mod tests {
     use core::panic;
-    use std::error::Error;
+    use std::{collections::HashSet, error::Error};
 
     use crate::{
         model::game::set_tile::SetTileRequest,
@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn handle_request_with_test_user_in_his_turn_should_set_tile(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let game_service = Arc::new(GameService::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = SetTileController::new(
             Arc::new(PlayerService::new(
                 Arc::new(LobbyService::new()),
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn handle_request_with_test_user_is_not_his_round_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let game_service = Arc::new(GameService::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = SetTileController::new(
             Arc::new(PlayerService::new(
                 Arc::new(LobbyService::new()),
@@ -177,7 +177,7 @@ mod tests {
     #[test]
     fn handle_request_with_test_user_set_tile_out_of_board_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let game_service = Arc::new(GameService::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = SetTileController::new(
             Arc::new(PlayerService::new(
                 Arc::new(LobbyService::new()),

@@ -135,7 +135,7 @@ public class Board : MonoBehaviour
             {
                 if (board.Rows[i].Columns[j].Tile != null)
                 {
-                    _blocks[i * 26 + j].GetComponent<Block>().SetText(board.Rows[i].Columns[j].Tile.Char);
+                    _blocks[i * board.Rows.Count + j].GetComponent<Block>().SetText(board.Rows[i].Columns[j].Tile.Char);
                 }
             }
         }

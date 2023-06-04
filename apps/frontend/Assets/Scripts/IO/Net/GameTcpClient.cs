@@ -80,14 +80,15 @@ namespace IO.Net
                             throw new WrongProtocolException();
                         if (state == (uint)(Broadcast.Lobby))
                         {
+                            Debug.Log("there");
                             var lobbyRes = LobbyBroadcast.Parser.ParseFrom(buf);
                             RoomPanel.BroadcastEnqueue(lobbyRes);
                         }
                         else if (state == (uint)(Broadcast.Game))
                         {
+                            Debug.Log("here");
                             var gameRes = GameBroadcast.Parser.ParseFrom(buf);
-                            // TODO: send message to board main thread
-                            // Board.SetGameState(gameRes);
+                            Board.BroadcastEnqueue(gameRes);
                         }
                         else if (_taskMap.ContainsKey(state))
                         {
@@ -188,7 +189,7 @@ namespace IO.Net
             return true;
         }
 
-        public async Task<Protos.Game.Board> StartGame()
+        public async Task<List<HandCard>> StartGame()
         {
             var res = StartResponse.Parser.ParseFrom(await Rpc(Operation.StartGame));
             if (!res.Success)
@@ -196,7 +197,7 @@ namespace IO.Net
                 throw new Exception("Someone is not Ready");
             }
 
-            return res.Board;
+            return res.Cards.Cards_.ToList();
         }
 
         public async Task<bool> SetTile(uint x, uint y, uint cardIndex)
@@ -220,7 +221,7 @@ namespace IO.Net
             return res.Success;
         }
 
-        public async Task<List<Card>> GetNewCard()
+        public async Task<List<HandCard>> GetNewCard()
         {
             var res = GetNewCardResponse.Parser.ParseFrom(await Rpc(Operation.GetNewCard));
             if (!res.Success)
@@ -228,7 +229,7 @@ namespace IO.Net
                 throw new Exception("get new card failed");
             }
 
-            return res.Cards.ToList();
+            return res.Cards.Cards_.ToList();
         }
 
         public async Task FinishTurn()
@@ -249,7 +250,7 @@ namespace IO.Net
             }
         }
 
-        public async Task<bool> Cancel(uint x, uint y)
+        public async Task<List<HandCard>> Cancel(uint x, uint y)
         {
             var req = new CancelRequest()
             {
@@ -266,7 +267,7 @@ namespace IO.Net
                 throw new Exception("cancel failed");
             }
 
-            return res.Success;
+            return res.Cards.Cards_.ToList();
         }
 
         public Task Reconnect()

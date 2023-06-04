@@ -232,7 +232,7 @@ impl GameService {
         if !game.get_board().lock().unwrap().validate(&self.wordlist) {
             return Err("invalid word".into());
         }
-
+        game.get_player_in_this_turn().get_new_card();
         game.next_turn();
         #[cfg(not(test))]
         {

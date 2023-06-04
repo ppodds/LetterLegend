@@ -58,16 +58,26 @@ impl Controller for FinishTurnController {
         if player_this_turn != game.get_next_turn_player() {
             return Err("Player not in his turn".into());
         }
-        self.game_service.finish_turn(game.clone())?;
-        Ok(ResponseData::FinishTurn(FinishTurnResponse {
-            success: true,
-            current_player: Some(crate::model::player::player::Player::from(
-                game.clone().get_player_in_this_turn(),
-            )),
-            next_player: Some(crate::model::player::player::Player::from(
-                game.get_next_turn_player(),
-            )),
-        }))
+        match self.game_service.finish_turn(game.clone()) {
+            Ok(_) => Ok(ResponseData::FinishTurn(FinishTurnResponse {
+                success: true,
+                current_player: Some(crate::model::player::player::Player::from(
+                    game.clone().get_player_in_this_turn(),
+                )),
+                next_player: Some(crate::model::player::player::Player::from(
+                    game.get_next_turn_player(),
+                )),
+                cards: Some(crate::model::game::cards::Cards::from(
+                    &player_this_turn.get_cards(),
+                )),
+            })),
+            Err(_) => Ok(ResponseData::FinishTurn(FinishTurnResponse {
+                success: false,
+                current_player: None,
+                next_player: None,
+                cards: None,
+            })),
+        }
     }
 }
 

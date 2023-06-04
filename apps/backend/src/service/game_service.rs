@@ -232,7 +232,7 @@ impl GameService {
         if !game.get_board().lock().unwrap().validate(&self.wordlist) {
             return Err("invalid word".into());
         }
-
+        game.get_player_in_this_turn().get_new_card();
         game.next_turn();
         #[cfg(not(test))]
         {
@@ -248,6 +248,7 @@ impl GameService {
                             State::GameBroadcast as u32,
                             Arc::new(ResponseData::GameBroadcast(GameBroadcast {
                                 event: GameEvent::Leave as i32,
+
                                 board: None,
                                 players: None,
                                 current_player: Some(crate::model::player::player::Player::from(

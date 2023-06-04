@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Protos.Lobby;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -57,6 +58,7 @@ public class RoomPanel : MonoBehaviour
                 break;
             case LobbyEvent.Start:
                 SceneManager.LoadScene("InGame");
+                GameManager.Instance.SetHandCards(res.Cards.Cards_.ToList());
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

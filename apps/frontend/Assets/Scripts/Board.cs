@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Protos.Game;
 using UnityEngine;
 
 public class Board : MonoBehaviour
@@ -10,6 +11,7 @@ public class Board : MonoBehaviour
     private HandField _handField;
     private Vector3 _boardMin;
     private Vector3 _boardMax;
+    private Queue<GameBroadcast> _gameBroadcasts;
 
     private void Awake()
     {
@@ -34,6 +36,42 @@ public class Board : MonoBehaviour
         _mouseEventSystem = MouseEventSystem.GetInstance();
         _mouseEventSystem.GetMouseReleasedEvent().AddListener(MouseReleased);
         _handField = HandField.GetInstance();
+        _gameBroadcasts = new Queue<GameBroadcast>();
+    }
+
+    public void Update()
+    {
+        GameBroadcast res;
+        lock (_gameBroadcasts)
+        {
+            if (_gameBroadcasts.Count == 0)
+            {
+                return;
+            }
+
+            res = _gameBroadcasts.Dequeue();
+        }
+
+        switch (res.Event)
+        {
+            case GameEvent.Destroy:
+                Debug.Log("destroy");
+                //滾回房間
+                break;
+            case GameEvent.Leave:
+                Debug.Log("Leave");
+                Debug.Log(res.Players);
+                break;
+            case GameEvent.Shuffle:
+                Debug.Log("Shuffle");
+                break;
+            case GameEvent.PlaceTile:
+                Debug.Log("PlaceTile");
+                Debug.Log(res.Board);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
     }
 
     private async void MouseReleased(Vector2 position)
@@ -78,4 +116,20 @@ public class Board : MonoBehaviour
     {
         return _boardMax;
     }
+    
+    public void BroadcastEnqueue(GameBroadcast gameBroadcast)
+    {
+        lock (_gameBroadcasts)
+        {
+            _gameBroadcasts.Enqueue(gameBroadcast);
+        }
+    }
+
+    /*public void SetBoard(Protos.Game.Board board)
+    {
+        for (int i = 0; i < board.CalculateSize(); i++)
+        {
+            _blocks[i] = board.Rows.
+        }
+    }*/
 }

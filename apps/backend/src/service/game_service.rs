@@ -248,7 +248,6 @@ impl GameService {
                             State::GameBroadcast as u32,
                             Arc::new(ResponseData::GameBroadcast(GameBroadcast {
                                 event: GameEvent::Leave as i32,
-
                                 board: None,
                                 players: None,
                                 current_player: Some(crate::model::player::player::Player::from(

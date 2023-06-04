@@ -30,19 +30,13 @@ public class Block : MonoBehaviour
 
     private async void MouseRightClicked(Vector2 position)
     {
-        var worldPosition = _mainCamera.ScreenToWorldPoint(position);
-        if (!_testCollider.bounds.Contains((Vector2)worldPosition) || _textMeshPro.text == "")
+        if (!Contains(position) || _textMeshPro.text == "")
         {
             return;
         }
-
+        
         var res = await GameManager.Instance.GameTcpClient.Cancel(_x, _y);
-        if (!res)
-        {
-            return;
-        }
-
-        _handField.AddBlock(_textMeshPro.text);
+        _handField.AddBlock(res);
         _textMeshPro.text = "";
     }
 

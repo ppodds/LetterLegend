@@ -238,7 +238,7 @@ namespace IO.Net
             return res.Cards.Cards_.ToList();
         }
 
-        public async Task<List<HandCard>> FinishTurn()
+        public async Task<Tuple<List<HandCard>, Player, Player>> FinishTurn()
         {
             var res = FinishTurnResponse.Parser.ParseFrom(await Rpc(Operation.FinishTurn));
             if (!res.Success)
@@ -246,7 +246,8 @@ namespace IO.Net
                 throw new Exception("finish turn failed");
             }
 
-            return res.Cards.Cards_.ToList();
+            return new Tuple<List<HandCard>, Player, Player>(res.Cards.Cards_.ToList(), res.CurrentPlayer,
+                res.NextPlayer);
         }
 
         public async Task HeartBeat()

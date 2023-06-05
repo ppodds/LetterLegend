@@ -38,15 +38,27 @@ impl GamePlayer {
     }
 
     pub fn generate_new_card() -> Vec<Card> {
-        let alphabet = (b'a'..=b'z') // Start as u8
+        let mut consonant = (b'a'..=b'z') // Start as u8
             .map(|c| c as char) // Convert all to chars
             .filter(|c| c.is_alphabetic()) // Filter only alphabetic chars
             .collect::<Vec<_>>();
-
+        consonant.retain(|consonant| {
+            *consonant != 'a'
+                && *consonant != 'e'
+                && *consonant != 'i'
+                && *consonant != 'o'
+                && *consonant != 'u'
+        });
+        let vowel = vec!['a', 'e', 'i', 'o', 'u'];
         let mut cards: Vec<Card> = Vec::new();
-        for _ in 0..8 {
+        for _ in 0..3 {
             cards.push(Card::new(
-                alphabet[rand::random::<u8>() as usize % alphabet.len()],
+                vowel[rand::random::<u8>() as usize % vowel.len()],
+            ));
+        }
+        for _ in 3..8 {
+            cards.push(Card::new(
+                consonant[rand::random::<u8>() as usize % consonant.len()],
             ));
         }
         cards

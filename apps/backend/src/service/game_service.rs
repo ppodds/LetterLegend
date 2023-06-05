@@ -247,7 +247,7 @@ impl GameService {
                         .send_message(Response::new(
                             State::GameBroadcast as u32,
                             Arc::new(ResponseData::GameBroadcast(GameBroadcast {
-                                event: GameEvent::Leave as i32,
+                                event: GameEvent::FinishTurn as i32,
                                 board: None,
                                 players: None,
                                 current_player: Some(crate::model::player::player::Player::from(
@@ -269,7 +269,9 @@ impl GameService {
     }
 
     pub fn remove_selected_tile(&self, x: u32, y: u32, game: Arc<Game>) {
-        game.get_board().lock().unwrap().tiles[x as usize][y as usize] = None;
+        {
+            game.get_board().lock().unwrap().tiles[x as usize][y as usize] = None;
+        }
         #[cfg(not(test))]
         {
             let board = game.get_board().clone();

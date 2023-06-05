@@ -53,15 +53,14 @@ impl Controller for FinishTurnController {
             Some(game_player) => game_player,
             None => return Err("Player not found".into()),
         };
-        let player_in_this_turn = game.get_player_in_this_turn();
-        if request_game_player != player_in_this_turn {
+        if request_game_player != game.get_player_in_this_turn() {
             return Err("Player not in his turn".into());
         }
         match self.game_service.finish_turn(game.clone()) {
             Ok(_) => Ok(ResponseData::FinishTurn(FinishTurnResponse {
                 success: true,
                 current_player: Some(crate::model::player::player::Player::from(
-                    player_in_this_turn,
+                    game.get_player_in_this_turn(),
                 )),
                 next_player: Some(crate::model::player::player::Player::from(
                     game.get_next_turn_player(),

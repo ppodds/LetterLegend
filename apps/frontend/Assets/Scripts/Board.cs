@@ -6,6 +6,7 @@ using UnityEngine;
 
 public class Board : MonoBehaviour
 {
+    public Timer timer;
     public PlayerShowText playerShowText;
     public GameObject block;
     private readonly List<GameObject> _blocks = new List<GameObject>();
@@ -70,6 +71,7 @@ public class Board : MonoBehaviour
                 break;
             case GameEvent.FinishTurn:
                 playerShowText.SetPlayerName(res.CurrentPlayer, res.NextPlayer);
+                timer.ResetCurrentTime();
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

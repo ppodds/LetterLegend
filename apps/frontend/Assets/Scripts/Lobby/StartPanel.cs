@@ -34,7 +34,8 @@ public class StartPanel : MonoBehaviour
         _playerName = nameField.text;
         _host = hostField.text;
         _port = int.Parse(tcpPortField.text);
-        TestInput();
+
+        // TestInput();
     }
 
     public async void Login()
@@ -46,7 +47,7 @@ public class StartPanel : MonoBehaviour
         {
             await GameManager.Instance.GameTcpClient.ConnectAsync(_playerName);
         }
-
+        Debug.Log(_host);
         gameObject.SetActive(false);
         lobbyPanel.SetActive(true);
     }

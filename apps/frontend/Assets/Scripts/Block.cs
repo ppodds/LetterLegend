@@ -34,9 +34,9 @@ public class Block : MonoBehaviour
         {
             return;
         }
-        
+
         var res = await GameManager.Instance.GameTcpClient.Cancel(_x, _y);
-        _handField.AddBlock(res);
+        _handField.SetHandField(res);
         _textMeshPro.text = "";
     }
 

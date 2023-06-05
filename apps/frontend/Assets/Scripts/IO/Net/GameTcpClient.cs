@@ -223,7 +223,6 @@ namespace IO.Net
             {
                 throw new Exception("set tile failed");
             }
-
             return res.Success;
         }
 

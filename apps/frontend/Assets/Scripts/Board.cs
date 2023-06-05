@@ -97,10 +97,13 @@ public class Board : MonoBehaviour
 
             var x = tempBlock.GetComponent<Block>().GetX();
             var y = tempBlock.GetComponent<Block>().GetY();
-            var res = await GameManager.Instance.GameTcpClient.SetTile(x, y, index.Value);
-            if (!res)
+            try
             {
-                continue;
+                var res = await GameManager.Instance.GameTcpClient.SetTile(x, y, index.Value);
+            }
+            catch (Exception ex)
+            {
+                break;
             }
 
             tempBlock.GetComponent<Block>().SetText(_handField.GetText());

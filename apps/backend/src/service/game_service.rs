@@ -232,12 +232,13 @@ impl GameService {
         if !game.get_board().lock().unwrap().validate(&self.wordlist) {
             return Err("invalid word".into());
         }
-        game.get_player_in_this_turn().get_new_card();
+        let player_in_this_turn = game.get_player_in_this_turn();
+        player_in_this_turn.get_new_card();
         game.next_turn();
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
-                if game_player == game.get_player_in_this_turn() {
+                if game_player == player_in_this_turn {
                     continue;
                 }
                 let game = game.clone();

@@ -4,6 +4,7 @@ public class FinishTurn : MonoBehaviour
 {
     public Timer timer;
     private HandField _handField;
+    public PlayerShowText playerShowText;
 
     private void Awake()
     {
@@ -16,7 +17,8 @@ public class FinishTurn : MonoBehaviour
         if (res != null)
         {
             timer.ResetCurrentTime();
-            _handField.SetHandField(res);
+            _handField.SetHandField(res.Item1);
+            playerShowText.SetPlayerName(res.Item2, res.Item3);
         }
     }
 }

@@ -174,8 +174,7 @@ public class HandField : MonoBehaviour
             var widthRef = (handField.GetComponent<RectTransform>().rect.width -
                             blockUI.GetComponent<RectTransform>().rect.width) / 2;
             var bottomCenter =
-                new Vector3(
-                    currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
+                new Vector3(currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
                     currentPosition.y, 0f);
             _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
             _blockList[i].GetComponent<BlockUI>().SetText(handCards[i].Card.Symbol);

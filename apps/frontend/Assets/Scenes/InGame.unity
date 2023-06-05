@@ -364,6 +364,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   timer: {fileID: 1440766326}
+  playerShowText: {fileID: 174577450}
 --- !u!114 &243800451
 MonoBehaviour:
   m_ObjectHideFlags: 0

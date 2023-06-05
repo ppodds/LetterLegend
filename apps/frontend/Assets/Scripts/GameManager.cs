@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using IO.Net;
 using Protos.Game;
 using Protos.Lobby;
+using Protos.Player;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -26,6 +27,7 @@ public class GameManager : MonoBehaviour
     private float _heartBeatTime;
     public uint PlayerID { get; private set; }
     private List<HandCard> _handCards;
+    private List<Player> _players;
     public GameTcpClient GameTcpClient { get; private set; }
 
     public static GameManager Instance { get; private set; }
@@ -46,6 +48,7 @@ public class GameManager : MonoBehaviour
         startPanel.gameObject.SetActive(true);
         lobbyPanel.gameObject.SetActive(false);
         roomPanel.gameObject.SetActive(false);
+        _players = new List<Player>();
     }
 
     private void Update()
@@ -69,7 +72,8 @@ public class GameManager : MonoBehaviour
     {
         var res = await GameTcpClient.StartGame();
         SceneManager.LoadScene("InGame");
-        SetHandCards(res);
+        SetHandCards(res.Item1);
+        SetPlayers(res.Item2, res.Item3);
     }
 
     private async void HeartBeat()
@@ -86,5 +90,17 @@ public class GameManager : MonoBehaviour
     public List<HandCard> GetHandCards()
     {
         return _handCards;
+    }
+
+    public void SetPlayers(Player player1, Player player2)
+    {
+        _players.Clear();
+        _players.Add(player1);
+        _players.Add(player2);
+    }
+
+    public List<Player> GetPlayers()
+    {
+        return _players;
     }
 }

@@ -22,19 +22,11 @@ public class StartPanel : MonoBehaviour
     private string _host;
     private int _port;
 
-    private void TestInput()
-    {
-        _playerName = "hello world";
-        _host = "127.0.0.1";
-        _port = 45678;
-    }
-
     public void SetInput()
     {
         _playerName = nameField.text;
         _host = hostField.text;
         _port = int.Parse(tcpPortField.text);
-        TestInput();
     }
 
     public async void Login()
@@ -46,7 +38,6 @@ public class StartPanel : MonoBehaviour
         {
             await GameManager.Instance.GameTcpClient.ConnectAsync(_playerName);
         }
-
         gameObject.SetActive(false);
         lobbyPanel.SetActive(true);
     }

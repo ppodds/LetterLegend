@@ -36,7 +36,7 @@ public class HandField : MonoBehaviour
                     currentPosition.y, 0f);
             _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
         }
-        
+
         SetHandField(GameManager.Instance.GetHandCards());
         _mouseEventSystem.GetMouseClickedEvent().AddListener(MouseClicked);
         _mouseEventSystem.GetFirstClickedEvent().AddListener(FirstClicked);
@@ -50,6 +50,11 @@ public class HandField : MonoBehaviour
 
     private async void ResetBlock()
     {
+        if (GetCount() < 8)
+        {
+            return;
+        }
+
         var res = await GameManager.Instance.GameTcpClient.GetNewCard();
         SetHandField(res);
     }
@@ -150,11 +155,6 @@ public class HandField : MonoBehaviour
         return _selectBlockUI != null ? _selectBlockUI.GetText() : null;
     }
 
-    public void AddBlock(List<HandCard> handCards)
-    {
-        SetHandField(handCards);
-    }
-
     public void SetHandField(List<HandCard> handCards)
     {
         for (var i = 0; i < handCards.Count; i++)
@@ -169,7 +169,7 @@ public class HandField : MonoBehaviour
                 _blockList[i].GetComponent<BlockUI>().SetText(handCards[i].Card.Symbol);
                 continue;
             }
-            
+
             var currentPosition = handField.GetComponent<RectTransform>().position;
             var widthRef = (handField.GetComponent<RectTransform>().rect.width -
                             blockUI.GetComponent<RectTransform>().rect.width) / 2;
@@ -180,5 +180,19 @@ public class HandField : MonoBehaviour
             _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
             _blockList[i].GetComponent<BlockUI>().SetText(handCards[i].Card.Symbol);
         }
+    }
+
+    private int GetCount()
+    {
+        var count = 0;
+        foreach (var tempBlock in _blockList)
+        {
+            if (tempBlock)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 }

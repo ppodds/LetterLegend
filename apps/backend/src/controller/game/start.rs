@@ -50,6 +50,10 @@ impl Controller for StartController {
             Some(lobby) => lobby,
             None => return Err("Player not in lobby".into()),
         };
+        match player.get_game() {
+            Some(_) => return Err("player already in game".into()),
+            None => (),
+        };
         let game = self.game_service.start_game(player.clone(), lobby)?;
         let game_player = match game.get_player(player.id) {
             Some(game_player) => game_player,

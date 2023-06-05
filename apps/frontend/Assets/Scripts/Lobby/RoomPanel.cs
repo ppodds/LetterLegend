@@ -59,6 +59,7 @@ public class RoomPanel : MonoBehaviour
             case LobbyEvent.Start:
                 SceneManager.LoadScene("InGame");
                 GameManager.Instance.SetHandCards(res.Cards.Cards_.ToList());
+                GameManager.Instance.SetPlayers(res.CurrentPlayer, res.NextPlayer);
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

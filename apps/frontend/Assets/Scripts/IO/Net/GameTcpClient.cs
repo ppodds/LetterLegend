@@ -9,6 +9,7 @@ using Google.Protobuf;
 using Protos.Control;
 using Protos.Game;
 using Protos.Lobby;
+using Protos.Player;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -80,13 +81,11 @@ namespace IO.Net
                             throw new WrongProtocolException();
                         if (state == (uint)(Broadcast.Lobby))
                         {
-                            Debug.Log("there");
                             var lobbyRes = LobbyBroadcast.Parser.ParseFrom(buf);
                             RoomPanel.BroadcastEnqueue(lobbyRes);
                         }
                         else if (state == (uint)(Broadcast.Game))
                         {
-                            Debug.Log("here");
                             var gameRes = GameBroadcast.Parser.ParseFrom(buf);
                             Board.BroadcastEnqueue(gameRes);
                         }
@@ -189,7 +188,7 @@ namespace IO.Net
             return true;
         }
 
-        public async Task<List<HandCard>> StartGame()
+        public async Task<Tuple<List<HandCard>, Player, Player>> StartGame()
         {
             var res = StartResponse.Parser.ParseFrom(await Rpc(Operation.StartGame));
             if (!res.Success)
@@ -197,7 +196,8 @@ namespace IO.Net
                 throw new Exception("Someone is not Ready");
             }
 
-            return res.Cards.Cards_.ToList();
+            return new Tuple<List<HandCard>, Player, Player>(res.Cards.Cards_.ToList(), res.CurrentPlayer,
+                res.NextPlayer);
         }
 
         public async Task<bool> SetTile(uint x, uint y, uint cardIndex)
@@ -232,13 +232,15 @@ namespace IO.Net
             return res.Cards.Cards_.ToList();
         }
 
-        public async Task FinishTurn()
+        public async Task<List<HandCard>> FinishTurn()
         {
             var res = FinishTurnResponse.Parser.ParseFrom(await Rpc(Operation.FinishTurn));
             if (!res.Success)
             {
                 throw new Exception("finish turn failed");
             }
+
+            return res.Cards.Cards_.ToList();
         }
 
         public async Task HeartBeat()

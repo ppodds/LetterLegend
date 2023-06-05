@@ -139,6 +139,10 @@ public class Board : MonoBehaviour
                 {
                     _blocks[i * board.Rows.Count + j].GetComponent<Block>().SetText(board.Rows[i].Columns[j].Tile.Char);
                 }
+                else
+                {
+                    _blocks[i * board.Rows.Count + j].GetComponent<Block>().SetText("");
+                }
             }
         }
     }

@@ -77,7 +77,13 @@ namespace IO.Net
                         // read data
                         buf = new byte[resLength];
                         n = await stream.ReadAsync(buf);
-                        if (n != buf.Length)
+                        var totalRead = n;
+                        while (totalRead != resLength)
+                        {
+                            totalRead += await stream.ReadAsync(buf, totalRead, (int)resLength - totalRead);
+                        }
+
+                        if (totalRead != buf.Length)
                             throw new WrongProtocolException();
                         if (state == (uint)(Broadcast.Lobby))
                         {

@@ -50,12 +50,11 @@ impl Controller for FinishTurnController {
             None => return Err("Player not in a game".into()),
         };
 
-        match game.get_player(player.id) {
+        let player_this_turn = match game.get_player(player.id) {
             Some(game_player) => game_player,
             None => return Err("Player not found".into()),
         };
-        let player_this_turn = game.get_player_in_this_turn();
-        if player_this_turn != game.get_next_turn_player() {
+        if player_this_turn != game.get_player_in_this_turn() {
             return Err("Player not in his turn".into());
         }
         match self.game_service.finish_turn(game.clone()) {

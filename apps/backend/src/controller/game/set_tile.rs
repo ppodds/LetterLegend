@@ -54,16 +54,20 @@ impl Controller for SetTileController {
         };
         let card = game_player.get_card(req.card_index as usize);
         if card.used {
+            ResponseData::SetTile(SetTileResponse { success: false });
             return Err("Card has used".into());
         }
         let turn_player = game.get_player_in_this_turn();
         if turn_player != game_player {
+            ResponseData::SetTile(SetTileResponse { success: false });
             return Err("Player can't place tile when not his turn".into());
         }
         if req.x >= 26 {
+            ResponseData::SetTile(SetTileResponse { success: false });
             return Err("Tile out of board".into());
         }
         if req.y >= 26 {
+            ResponseData::SetTile(SetTileResponse { success: false });
             return Err("Tile out of board".into());
         }
         self.game_service.place_tile_on_board(

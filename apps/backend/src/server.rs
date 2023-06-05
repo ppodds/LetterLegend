@@ -88,6 +88,7 @@ impl Server {
                     };
                     match frame {
                         Frame::Request(req) => {
+                            println!("received request; request = {:?}", req);
                             let state = req.get_state();
                             match server.router.route(
                                 req,
@@ -103,7 +104,7 @@ impl Server {
                                         .await
                                         .is_err()
                                     {
-                                        eprintln!("failed to send frame");
+                                        eprintln!("failed to send frame to writer thread");
                                         break;
                                     }
                                 }
@@ -125,7 +126,6 @@ impl Server {
             tokio::spawn(async move {
                 loop {
                     while let Some(frame) = shared_rx.lock().await.recv().await {
-                        println!("received frame; frame = {:?}", frame);
                         match connection.write_frame(&frame).await {
                             Ok(_) => {
                                 println!("sent frame; frame = {:?}", frame);

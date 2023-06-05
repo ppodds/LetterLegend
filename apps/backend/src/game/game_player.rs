@@ -42,9 +42,19 @@ impl GamePlayer {
             .map(|c| c as char) // Convert all to chars
             .filter(|c| c.is_alphabetic()) // Filter only alphabetic chars
             .collect::<Vec<_>>();
-
+        let mut vowel = Vec::new();
+        vowel.push('a');
+        vowel.push('e');
+        vowel.push('i');
+        vowel.push('o');
+        vowel.push('u');
         let mut cards: Vec<Card> = Vec::new();
-        for _ in 0..8 {
+        for _ in 0..3 {
+            cards.push(Card::new(
+                vowel[rand::random::<u8>() as usize % vowel.len()],
+            ));
+        }
+        for _ in 3..8 {
             cards.push(Card::new(
                 alphabet[rand::random::<u8>() as usize % alphabet.len()],
             ));

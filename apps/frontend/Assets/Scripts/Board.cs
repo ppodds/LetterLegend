@@ -80,35 +80,32 @@ public class Board : MonoBehaviour
 
     private async void MouseReleased(Vector2 position)
     {
+        if (!_handField.GetSelectBlock() || _handField.GetIndex() == null)
+        {
+            return;
+        }
+
         foreach (var tempBlock in _blocks)
         {
-            if (!tempBlock.GetComponent<Block>().Contains(position)
-                || tempBlock.GetComponent<Block>().GetText() != ""
-                || !_handField.GetSelectBlock())
+            var blockComponent = tempBlock.GetComponent<Block>();
+            if (!blockComponent.Contains(position)
+                || blockComponent.GetText() != "")
             {
                 continue;
             }
-
-            var index = _handField.GetIndex();
-            if (index == null)
-            {
-                throw new Exception("HandField GetIndex failed");
-            }
-
-            var x = tempBlock.GetComponent<Block>().GetX();
-            var y = tempBlock.GetComponent<Block>().GetY();
             try
             {
-                var res = await GameManager.Instance.GameTcpClient.SetTile(x, y, index.Value);
+                await GameManager.Instance.GameTcpClient.SetTile(blockComponent.GetX(), blockComponent.GetY(), 
+                    _handField.GetIndex().Value);
+                blockComponent.SetText(_handField.GetText());
+                _handField.DeleteSelectObject();
+                return;
             }
             catch (Exception ex)
             {
-                break;
+                _handField.ResetPosition();
+                return;
             }
-
-            tempBlock.GetComponent<Block>().SetText(_handField.GetText());
-            _handField.DeleteSelectObject();
-            return;
         }
 
         _handField.ResetPosition();

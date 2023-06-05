@@ -206,7 +206,7 @@ namespace IO.Net
                 res.NextPlayer);
         }
 
-        public async Task<bool> SetTile(uint x, uint y, uint cardIndex)
+        public async Task SetTile(uint x, uint y, uint cardIndex)
         {
             var req = new SetTileRequest()
             {
@@ -223,7 +223,6 @@ namespace IO.Net
             {
                 throw new Exception("set tile failed");
             }
-            return res.Success;
         }
 
         public async Task<List<HandCard>> GetNewCard()

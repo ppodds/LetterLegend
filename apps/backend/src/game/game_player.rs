@@ -43,11 +43,11 @@ impl GamePlayer {
             .filter(|c| c.is_alphabetic()) // Filter only alphabetic chars
             .collect::<Vec<_>>();
         consonant.retain(|consonant| {
-            *consonant == 'a'
-                || *consonant == 'e'
-                || *consonant == 'i'
-                || *consonant == 'o'
-                || *consonant == 'u'
+            *consonant != 'a'
+                || *consonant != 'e'
+                || *consonant != 'i'
+                || *consonant != 'o'
+                || *consonant != 'u'
         });
         let vowel = vec!['a', 'e', 'i', 'o', 'u'];
         let mut cards: Vec<Card> = Vec::new();

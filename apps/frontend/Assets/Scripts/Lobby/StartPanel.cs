@@ -34,8 +34,6 @@ public class StartPanel : MonoBehaviour
         _playerName = nameField.text;
         _host = hostField.text;
         _port = int.Parse(tcpPortField.text);
-
-        // TestInput();
     }
 
     public async void Login()

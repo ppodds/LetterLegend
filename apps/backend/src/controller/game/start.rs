@@ -55,7 +55,6 @@ impl Controller for StartController {
             Some(game_player) => game_player,
             None => return Err("find no player".into()),
         };
-
         Ok(ResponseData::StartGame(StartResponse {
             success: true,
             board: Some(crate::model::game::board::Board::from(
@@ -64,7 +63,9 @@ impl Controller for StartController {
             cards: Some(crate::model::game::cards::Cards::from(
                 &game_player.get_cards(),
             )),
-            current_player: Some(crate::model::player::player::Player::from(game_player)),
+            current_player: Some(crate::model::player::player::Player::from(
+                game.get_player_in_this_turn(),
+            )),
             next_player: Some(crate::model::player::player::Player::from(
                 game.get_next_turn_player(),
             )),

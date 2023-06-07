@@ -68,7 +68,7 @@ public class MouseEventSystem : MonoBehaviour
                 _firstClickedEvent.Invoke(Input.mousePosition);
                 _eventStart = DateTime.Now;
             }
-            else if (DateTime.Now.Subtract((DateTime)_eventStart).TotalMilliseconds > 150)
+            else if (DateTime.Now.Subtract((DateTime)_eventStart).TotalMilliseconds > 100)
             {
                 _mouseDraggedEvent.Invoke(Input.mousePosition);
             }
@@ -79,7 +79,7 @@ public class MouseEventSystem : MonoBehaviour
         }
         else if (Input.GetMouseButtonUp(0) && _eventStart != null)
         {
-            if (DateTime.Now.Subtract((DateTime)_eventStart).TotalMilliseconds > 150)
+            if (DateTime.Now.Subtract((DateTime)_eventStart).TotalMilliseconds > 100)
             {
                 _mouseReleasedEvent.Invoke(Input.mousePosition);
             }
@@ -92,7 +92,7 @@ public class MouseEventSystem : MonoBehaviour
         }
         else if (Input.GetMouseButtonUp(1) && _eventStart != null)
         {
-            if (DateTime.Now.Subtract((DateTime)_eventStart).TotalMilliseconds <= 150)
+            if (DateTime.Now.Subtract((DateTime)_eventStart).TotalMilliseconds <= 100)
             {
                 _mouseRightClickedEvent.Invoke(Input.mousePosition);
             }

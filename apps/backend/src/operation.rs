@@ -17,6 +17,7 @@ pub enum Operation {
     FinishTurn,
     GetNewCard,
     Cancel,
+    Exit,
 }
 
 impl TryFrom<u8> for Operation {
@@ -36,6 +37,7 @@ impl TryFrom<u8> for Operation {
             10 => Ok(Operation::FinishTurn),
             11 => Ok(Operation::GetNewCard),
             12 => Ok(Operation::Cancel),
+            13 => Ok(Operation::Exit),
             _ => Err("invalid operation".into()),
         }
     }
@@ -58,6 +60,7 @@ impl TryFrom<&RequestData> for Operation {
             RequestData::FinishTurn => Ok(Operation::FinishTurn),
             RequestData::GetNewCard => Ok(Operation::GetNewCard),
             RequestData::Cancel(_) => Ok(Operation::Cancel),
+            RequestData::Exit => Ok(Operation::Exit),
             // _ => Err("invalid request".into()),
         }
     }

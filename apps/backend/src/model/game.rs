@@ -3,6 +3,7 @@ pub mod broadcast;
 pub mod cancel;
 pub mod card;
 pub mod cards;
+pub mod exit;
 pub mod finish_turn;
 pub mod get_new_card;
 pub mod hand_card;

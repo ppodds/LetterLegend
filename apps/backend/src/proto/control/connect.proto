@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package control.connect;
+import "player/player.proto";
 option csharp_namespace = "Protos.Control";
 
 message ConnectRequest {
@@ -9,4 +10,5 @@ message ConnectRequest {
 
 message ConnectResponse {
     bool success = 1;
+    optional player.player.Player player = 2;
 }

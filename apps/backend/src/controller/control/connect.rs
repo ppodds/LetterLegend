@@ -34,7 +34,7 @@ impl Controller for ConnectController {
             RequestData::Connect(req) => req,
             _ => panic!("invalid request"),
         };
-        match self.player_service.get_player(context.client_id) {
+        let player = match self.player_service.get_player(context.client_id) {
             Some(_) => return Err("client already connected".into()),
             None => self.player_service.add_player(
                 context.client_id,
@@ -44,7 +44,10 @@ impl Controller for ConnectController {
             ),
         };
 
-        Ok(ResponseData::Connect(ConnectResponse { success: true }))
+        Ok(ResponseData::Connect(ConnectResponse {
+            success: true,
+            player: Some(crate::model::player::player::Player::from(player)),
+        }))
     }
 }
 

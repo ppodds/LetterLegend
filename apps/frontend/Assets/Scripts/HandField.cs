@@ -101,7 +101,6 @@ public class HandField : MonoBehaviour
         {
             return;
         }
-        //Debug.Log(_selectBlockPosition);
 
         _selectBlockUI.transform.position = _selectBlockPosition;
         _selectBlockUI = null;
@@ -171,12 +170,13 @@ public class HandField : MonoBehaviour
                 _blockList[i].GetComponent<BlockUI>().SetText(handCards[i].Card.Symbol);
                 continue;
             }
+
             var widthRef = (handField.GetComponent<RectTransform>().rect.width -
                             blockUI.GetComponent<RectTransform>().rect.width) / 2;
             var bottomCenter =
-                new Vector3( -widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
+                new Vector3(-widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
                     0f, 0f);
-            _blockList[i] = Instantiate(blockUI, new Vector3(0,0,0), Quaternion.identity, this.transform);
+            _blockList[i] = Instantiate(blockUI, new Vector3(0, 0, 0), Quaternion.identity, this.transform);
             _blockList[i].GetComponent<Transform>().transform.localPosition = bottomCenter;
             _blockList[i].GetComponent<BlockUI>().SetText(handCards[i].Card.Symbol);
         }

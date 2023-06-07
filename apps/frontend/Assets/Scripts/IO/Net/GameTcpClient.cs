@@ -109,7 +109,7 @@ namespace IO.Net
             }, token);
         }
 
-        public async Task ConnectAsync(string name)
+        public async Task<Player> ConnectAsync(string name)
         {
             await _client.ConnectAsync(_host, _port);
             Loop();
@@ -125,6 +125,8 @@ namespace IO.Net
             {
                 throw new Exception("create player failed");
             }
+
+            return res.Player;
         }
 
         public async Task<List<LobbyInfo>> GetLobbies()

@@ -15,6 +15,7 @@ public class Board : MonoBehaviour
     private Vector3 _boardMin;
     private Vector3 _boardMax;
     private Queue<GameBroadcast> _gameBroadcasts;
+    private Camera _camera;
 
     private void Awake()
     {
@@ -37,6 +38,7 @@ public class Board : MonoBehaviour
             _blocks[0].transform.position.y - scale, 0);
         _boardMax = new Vector3(_blocks[26 * 26 - 1].transform.position.x + scale,
             _blocks[26 * 26 - 1].transform.position.y + scale, 0);
+        _camera = Camera.main;
         _mouseEventSystem = MouseEventSystem.GetInstance();
         _mouseEventSystem.GetMouseReleasedEvent().AddListener(MouseReleased);
         _handField = HandField.GetInstance();
@@ -71,6 +73,7 @@ public class Board : MonoBehaviour
                 break;
             case GameEvent.FinishTurn:
                 playerShowText.SetPlayerName(res.CurrentPlayer, res.NextPlayer);
+                GameManager.Instance.SetPlayers(res.CurrentPlayer, res.NextPlayer);
                 timer.ResetCurrentTime();
                 break;
             default:
@@ -80,8 +83,11 @@ public class Board : MonoBehaviour
 
     private async void MouseReleased(Vector2 position)
     {
-        if (!_handField.GetSelectBlock() || _handField.GetIndex() == null)
+        if (!_handField.GetSelectBlock() || _handField.GetIndex() == null
+                                         || !Equals(GameManager.Instance.GetCurrentPlayer(),
+                                             GameManager.Instance.GetMainPlayer()))
         {
+            _handField.ResetPosition();
             return;
         }
 
@@ -93,19 +99,12 @@ public class Board : MonoBehaviour
             {
                 continue;
             }
-            try
-            {
-                await GameManager.Instance.GameTcpClient.SetTile(blockComponent.GetX(), blockComponent.GetY(), 
-                    _handField.GetIndex().Value);
-                blockComponent.SetText(_handField.GetText());
-                _handField.DeleteSelectObject();
-                return;
-            }
-            catch (Exception ex)
-            {
-                _handField.ResetPosition();
-                return;
-            }
+
+            await GameManager.Instance.GameTcpClient.SetTile(blockComponent.GetX(), blockComponent.GetY(),
+                _handField.GetIndex().Value);
+            blockComponent.SetText(_handField.GetText());
+            _handField.DeleteSelectObject();
+            return;
         }
 
         _handField.ResetPosition();
@@ -131,19 +130,58 @@ public class Board : MonoBehaviour
 
     private void SetBoard(Protos.Game.Board board)
     {
+        var count = 0;
+        Block targetBlock = null;
         for (var i = 0; i < board.Rows.Count; i++)
         {
             for (var j = 0; j < board.Rows[i].Columns.Count; j++)
             {
+                var blockComponent = _blocks[i * board.Rows.Count + j].GetComponent<Block>();
                 if (board.Rows[i].Columns[j].Tile != null)
                 {
-                    _blocks[i * board.Rows.Count + j].GetComponent<Block>().SetText(board.Rows[i].Columns[j].Tile.Char);
+                    if (blockComponent.GetText() == "")
+                    {
+                        count++;
+                        targetBlock = blockComponent;
+                    }
+
+                    blockComponent.SetText(board.Rows[i].Columns[j].Tile.Char);
                 }
                 else
                 {
-                    _blocks[i * board.Rows.Count + j].GetComponent<Block>().SetText("");
+                    if (blockComponent.GetText() != "")
+                    {
+                        count++;
+                        targetBlock = blockComponent;
+                    }
+
+                    blockComponent.SetText("");
                 }
             }
         }
+
+        if (count == 1)
+        {
+            StayFocus(targetBlock);
+        }
+    }
+
+    private void StayFocus(Block target)
+    {
+        var targetPosition = target.transform.position;
+        targetPosition.z = -10;
+        var screenRef = targetPosition - _camera.transform.position;
+
+        var screenBound = _camera.ScreenToWorldPoint(new Vector3(Screen.width, Screen.height, 0));
+        if (screenBound.x + screenRef.x > _boardMax.x) targetPosition.x -= (screenBound.x + screenRef.x - _boardMax.x);
+        if (screenBound.y + screenRef.y > _boardMax.y) targetPosition.y -= (screenBound.y + screenRef.y - _boardMax.y);
+
+        var cameraMinCoordinate = _camera.ViewportToWorldPoint(new Vector3(0, 0, 0));
+        if (cameraMinCoordinate.x + screenRef.x < _boardMin.x)
+            targetPosition.x -= (cameraMinCoordinate.x + screenRef.x - _boardMin.x);
+        if (cameraMinCoordinate.y + screenRef.y < _boardMin.y)
+            targetPosition.y -= (cameraMinCoordinate.y + screenRef.y - _boardMin.y);
+
+        _camera.transform.position = targetPosition;
     }
 }

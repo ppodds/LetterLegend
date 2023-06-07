@@ -64,16 +64,17 @@ impl Controller for ExitController {
 mod tests {
     use std::{collections::HashSet, error::Error};
 
-    use crate::service::lobby_service::{self, LobbyService};
+    use crate::service::lobby_service::LobbyService;
 
     use super::*;
 
     #[test]
     fn player_in_game_exit_should_success() -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
+        let lobby_service = Arc::new(LobbyService::new());
         let controller = ExitController::new(
             Arc::new(PlayerService::new(
-                Arc::new(LobbyService::new()),
+                lobby_service.clone(),
                 game_service.clone(),
             )),
             game_service,
@@ -81,7 +82,6 @@ mod tests {
         let player = controller
             .player_service
             .add_player(0, String::from("test"));
-        let lobby_service = Arc::new(lobby_service::LobbyService::new());
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
@@ -99,11 +99,12 @@ mod tests {
     }
 
     #[test]
-    fn player_not_in_game_exit_should_success() -> Result<(), Box<dyn Error + Sync + Send>> {
+    fn player_not_in_game_exit_should_failed() -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
+        let lobby_service = Arc::new(LobbyService::new());
         let controller = ExitController::new(
             Arc::new(PlayerService::new(
-                Arc::new(LobbyService::new()),
+                lobby_service.clone(),
                 game_service.clone(),
             )),
             game_service,
@@ -111,7 +112,6 @@ mod tests {
         let player = controller
             .player_service
             .add_player(0, String::from("test"));
-        let lobby_service = Arc::new(lobby_service::LobbyService::new());
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);

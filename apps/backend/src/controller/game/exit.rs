@@ -86,16 +86,20 @@ mod tests {
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
-        let game = controller.game_service.start_game(player, lobby)?;
-        let player_now = game.get_player_in_this_turn();
-        assert!(controller
-            .handle_request(
-                Request::new(0, Arc::new(RequestData::Exit)),
-                RequestContext {
-                    client_id: player_now.player.id
-                },
-            )
-            .is_ok());
+        controller.game_service.start_game(player.clone(), lobby)?;
+        let res = controller.handle_request(
+            Request::new(0, Arc::new(RequestData::Exit)),
+            RequestContext {
+                client_id: player.id,
+            },
+        )?;
+        match res {
+            ResponseData::Exit(data) => {
+                let success = data.success;
+                assert!(success)
+            }
+            _ => panic!("wrong response type"),
+        }
         Ok(())
     }
 
@@ -121,7 +125,7 @@ mod tests {
             .handle_request(
                 Request::new(0, Arc::new(RequestData::Exit)),
                 RequestContext {
-                    client_id: player.id
+                    client_id: player.id,
                 },
             )
             .is_err());

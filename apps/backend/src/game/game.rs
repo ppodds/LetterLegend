@@ -6,6 +6,7 @@ use std::{
 use super::{board::Board, game_player::GamePlayer};
 use crate::player::Player;
 
+use tokio::task::JoinHandle;
 #[derive(Debug)]
 pub struct Game {
     pub id: u32,
@@ -13,6 +14,7 @@ pub struct Game {
     players: Mutex<HashMap<u32, Arc<GamePlayer>>>,
     turn_queue: Mutex<LinkedList<Arc<GamePlayer>>>,
     board: Arc<Mutex<Board>>,
+    timeout: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl PartialEq for Game {
@@ -25,7 +27,6 @@ impl Game {
     pub fn new(id: u32, players: Vec<Arc<Player>>) -> Self {
         let mut map = HashMap::new();
         let mut queue = LinkedList::new();
-
         for player in players {
             map.insert(player.id, Arc::new(GamePlayer::new(player.clone())));
         }
@@ -39,7 +40,12 @@ impl Game {
             players: Mutex::new(map),
             turn_queue: Mutex::new(queue),
             board: Arc::new(Mutex::new(Board::new())),
+            timeout: Mutex::new(None),
         }
+    }
+
+    pub fn set_timeout_task(&self, task: JoinHandle<()>) {
+        *self.timeout.lock().unwrap() = Some(task);
     }
 
     pub fn get_board(&self) -> Arc<Mutex<Board>> {

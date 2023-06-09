@@ -68,8 +68,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn handle_request_with_test_player_in_game_exit_should_success(
+    #[tokio::test]
+    async fn handle_request_with_test_player_in_game_exit_should_success(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let lobby_service = Arc::new(LobbyService::new());
@@ -103,8 +103,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_request_with_test_player_not_in_game_exit_should_failed(
+    #[tokio::test]
+    async fn handle_request_with_test_player_not_in_game_exit_should_failed(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let lobby_service = Arc::new(LobbyService::new());

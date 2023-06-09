@@ -56,7 +56,10 @@ impl Controller for FinishTurnController {
         if request_game_player != game.get_player_in_this_turn() {
             return Err("Player not in his turn".into());
         }
-        match self.game_service.finish_turn(game.clone()) {
+        match self
+            .game_service
+            .validate_board_and_finish_turn(game.clone())
+        {
             Ok(_) => Ok(ResponseData::FinishTurn(FinishTurnResponse {
                 success: true,
                 current_player: Some(crate::model::player::player::Player::from(
@@ -88,8 +91,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn player_in_his_turn_finish_turn_should_success() -> Result<(), Box<dyn Error + Sync + Send>> {
+    #[tokio::test]
+    async fn player_in_his_turn_finish_turn_should_success() -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = FinishTurnController::new(
             Arc::new(PlayerService::new(
@@ -118,8 +121,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn player_not_in_his_turn_finish_turn_should_fail() -> Result<(), Box<dyn Error + Sync + Send>>
+    #[tokio::test]
+    async fn player_not_in_his_turn_finish_turn_should_fail() -> Result<(), Box<dyn Error + Sync + Send>>
     {
         let lobby_service = Arc::new(LobbyService::new());
         let game_service = Arc::new(GameService::new(HashSet::new()));

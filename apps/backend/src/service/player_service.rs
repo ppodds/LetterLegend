@@ -91,8 +91,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn add_player_with_test_user_online_player_map_should_include_test_user(
+    #[tokio::test]
+    async fn add_player_with_test_user_online_player_map_should_include_test_user(
     ) -> Result<(), Box<dyn Error>> {
         let service = PlayerService::new(
             Arc::new(LobbyService::new()),
@@ -103,8 +103,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn get_players_with_a_player_in_online_player_map_should_return_a_vec_with_that_player(
+    #[tokio::test]
+    async fn get_players_with_a_player_in_online_player_map_should_return_a_vec_with_that_player(
     ) -> Result<(), Box<dyn Error>> {
         let service = PlayerService::new(
             Arc::new(LobbyService::new()),
@@ -119,8 +119,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_player_with_a_player_in_lobby_should_remove_player_from_lobby(
+    #[tokio::test]
+    async fn remove_player_with_a_player_in_lobby_should_remove_player_from_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let lobby_service = Arc::new(LobbyService::new());
         let service = PlayerService::new(
@@ -135,8 +135,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_player_with_a_player_in_game_should_remove_player_from_game(
+    #[tokio::test]
+    async fn remove_player_with_a_player_in_game_should_remove_player_from_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let lobby_service = Arc::new(LobbyService::new());
@@ -151,8 +151,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_player_with_a_player_not_existing_should_return_error(
+    #[tokio::test]
+    async fn remove_player_with_a_player_not_existing_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = PlayerService::new(
             Arc::new(LobbyService::new()),

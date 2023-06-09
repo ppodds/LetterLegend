@@ -85,8 +85,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn handle_request_with_test_user_in_test_lobby_should_start_game(
+    #[tokio::test]
+    async fn handle_request_with_test_user_in_test_lobby_should_start_game(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let controller = StartController::new(
             Arc::new(PlayerService::new(

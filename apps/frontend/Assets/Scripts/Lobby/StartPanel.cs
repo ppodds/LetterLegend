@@ -36,8 +36,10 @@ public class StartPanel : MonoBehaviour
         var task = GameManager.Instance.ConnectToServer();
         if (task)
         {
-            await GameManager.Instance.GameTcpClient.ConnectAsync(_playerName);
+            var res = await GameManager.Instance.GameTcpClient.ConnectAsync(_playerName);
+            GameManager.Instance.SetMainPlayer(res);
         }
+
         gameObject.SetActive(false);
         lobbyPanel.SetActive(true);
     }

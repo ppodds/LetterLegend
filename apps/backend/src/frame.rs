@@ -9,6 +9,7 @@ use crate::{
     model::control::disconnect::DisconnectResponse,
     model::control::heartbeat::HeartbeatResponse,
     model::game::broadcast::GameBroadcast,
+    model::game::exit::ExitResponse,
     model::game::finish_turn::FinishTurnResponse,
     model::game::get_new_card::GetNewCardResponse,
     model::game::set_tile::SetTileRequest,
@@ -70,6 +71,7 @@ pub enum RequestData {
     FinishTurn,
     GetNewCard,
     Cancel(CancelRequest),
+    Exit,
 }
 
 impl Hash for RequestData {
@@ -88,6 +90,7 @@ impl Hash for RequestData {
             RequestData::FinishTurn => 10.hash(state),
             RequestData::GetNewCard => 11.hash(state),
             RequestData::Cancel(_) => 12.hash(state),
+            RequestData::Exit => 13.hash(state),
         }
     }
 }
@@ -130,6 +133,7 @@ pub enum ResponseData {
     FinishTurn(FinishTurnResponse),
     GetNewCard(GetNewCardResponse),
     GameBroadcast(GameBroadcast),
+    Exit(ExitResponse),
 }
 
 #[derive(Debug)]
@@ -162,6 +166,7 @@ impl Frame {
             Operation::StartGame => return Ok(()),
             Operation::SetTile => SetTileRequest::decode(payload).err(),
             Operation::FinishTurn => return Ok(()),
+            Operation::Exit => return Ok(()),
             Operation::GetNewCard => return Ok(()),
             Operation::Cancel => CancelRequest::decode(payload).err(),
         };
@@ -249,6 +254,10 @@ impl Frame {
             Operation::GetNewCard => Ok(Frame::Request(Request {
                 state,
                 data: Arc::new(RequestData::GetNewCard),
+            })),
+            Operation::Exit => Ok(Frame::Request(Request {
+                state,
+                data: Arc::new(RequestData::Exit),
             })),
         }
     }

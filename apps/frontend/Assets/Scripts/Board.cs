@@ -62,7 +62,8 @@ public class Board : MonoBehaviour
         switch (res.Event)
         {
             case GameEvent.Destroy:
-                GameManager.Instance.QuitGame();
+                SceneManager.LoadScene(0);
+                //GameManager.Instance.QuitGame();
                 break;
             case GameEvent.Leave:
                 //Debug.Log(res.Players);

@@ -81,11 +81,6 @@ public class GameManager : MonoBehaviour
         SetPlayers(res.Item2, res.Item3);
     }
 
-    public void QuitGame()
-    {
-        SceneManager.LoadScene("Lobby");
-    }
-
     private async void HeartBeat()
     {
         if (GameTcpClient != null && GameTcpClient.IsConnected())

@@ -94,7 +94,7 @@ impl Board {
                 }
                 if row == BOARD_SIZE - 1 && current_word.is_some() {
                     let word = current_word.unwrap();
-                    if !dict.contains(&word) {
+                    if !dict.contains(&word) && is_horizontal_word_arr[row][col] == false {
                         return false;
                     }
                     current_word = None;
@@ -141,6 +141,22 @@ mod tests {
         board.tiles[0][0] = Some(t_tile);
         board.tiles[1][0] = Some(h_tile);
         board.tiles[2][0] = Some(e_tile);
+        assert!(board.validate(&wordlist));
+        Ok(())
+    }
+
+    #[test]
+    fn validate_with_tub_word_col_should_return_true() -> Result<(), Box<dyn Error + Sync + Send>> {
+        let mut wordlist = HashSet::new();
+        wordlist.insert(String::from("tub"));
+        let mut board = Board::new();
+        let player = Arc::new(Player::new(0, String::from("test")));
+        let t_tile = Tile::new('t', player.clone(), 1);
+        let u_tile = Tile::new('u', player.clone(), 1);
+        let b_tile = Tile::new('b', player, 1);
+        board.tiles[25][23] = Some(t_tile);
+        board.tiles[25][24] = Some(u_tile);
+        board.tiles[25][25] = Some(b_tile);
         assert!(board.validate(&wordlist));
         Ok(())
     }

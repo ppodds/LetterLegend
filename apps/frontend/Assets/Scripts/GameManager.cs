@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using IO.Net;
 using Protos.Game;
@@ -80,6 +81,11 @@ public class GameManager : MonoBehaviour
         SetPlayers(res.Item2, res.Item3);
     }
 
+    public void QuitGame()
+    {
+        SceneManager.LoadScene("Lobby");
+    }
+
     private async void HeartBeat()
     {
         if (GameTcpClient != null && GameTcpClient.IsConnected())
@@ -120,5 +126,23 @@ public class GameManager : MonoBehaviour
     public Player GetNextPlayer()
     {
         return _nextPlayer;
+    }
+
+    public void SetRoomPanel(RoomPanel tmpPanel)
+    {
+        roomPanel = tmpPanel;
+    }
+
+    public void SetLobbyPanel(LobbyPanel tmpPanel)
+    {
+        lobbyPanel = tmpPanel;
+        roomPanel.gameObject.SetActive(false);
+        lobbyPanel.gameObject.SetActive(true);
+        startPanel.gameObject.SetActive(false);
+    }
+
+    public void SetStartPanel(StartPanel tmpPanel)
+    {
+        startPanel = tmpPanel;
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Protos.Game;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class Board : MonoBehaviour
 {
@@ -34,10 +35,10 @@ public class Board : MonoBehaviour
             }
         }
 
-        _boardMin = new Vector3(_blocks[0].transform.position.x - scale,
-            _blocks[0].transform.position.y - scale, 0);
-        _boardMax = new Vector3(_blocks[26 * 26 - 1].transform.position.x + scale,
-            _blocks[26 * 26 - 1].transform.position.y + scale, 0);
+        _boardMin = new Vector3(_blocks[0].transform.position.x - scale / 2,
+            _blocks[0].transform.position.y - scale / 2, 0);
+        _boardMax = new Vector3(_blocks[26 * 26 - 1].transform.position.x + scale / 2,
+            _blocks[26 * 26 - 1].transform.position.y + scale / 2, 0);
         _camera = Camera.main;
         _mouseEventSystem = MouseEventSystem.GetInstance();
         _mouseEventSystem.GetMouseReleasedEvent().AddListener(MouseReleased);
@@ -61,7 +62,7 @@ public class Board : MonoBehaviour
         switch (res.Event)
         {
             case GameEvent.Destroy:
-                //滾回房間
+                GameManager.Instance.QuitGame();
                 break;
             case GameEvent.Leave:
                 //Debug.Log(res.Players);

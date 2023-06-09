@@ -8,6 +8,7 @@ public class PlayerShowText : MonoBehaviour
 {
     public TextMeshProUGUI textMeshProUGUI;
     private Camera _camera;
+    private float _startTime;
 
     private void Awake()
     {
@@ -26,23 +27,14 @@ public class PlayerShowText : MonoBehaviour
 
     private IEnumerator Shake()
     {
+        _startTime = Time.time;
         var originalPosition = _camera.transform.position;
-        for(var i = 0;i < 15; i ++)
+        while (Time.time - _startTime < 0.4f)
         {
-            var x = 0f;
-            var y = 0f;
-            if (i % 2 == 0)
-            {
-                x = Random.Range(0f, 1f);
-                y = Random.Range(0f, 1f);
-            }
-            else
-            {
-                x = Random.Range(-1f, 0f);
-                y = Random.Range(-1f, 0f);
-            }
+            var x = Random.Range(-0.25f, 0.25f);
+            var y = Random.Range(-0.25f, 0.25f);
             _camera.transform.position = new Vector3(originalPosition.x + x, originalPosition.y + y, originalPosition.z);
-            yield return new WaitForSeconds(0.05f);
+            yield return new WaitForSeconds(0.075f);
         }
         _camera.transform.position = originalPosition;
     }

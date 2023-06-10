@@ -91,6 +91,7 @@ public class RoomPanel : MonoBehaviour
     private void Awake()
     {
         GameManager.Instance.GameTcpClient.RoomPanel = this;
+        GameManager.Instance.SetRoomPanel(this);
         _lobbyBroadcasts = new Queue<LobbyBroadcast>();
     }
 

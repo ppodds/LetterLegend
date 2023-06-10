@@ -279,6 +279,16 @@ namespace IO.Net
             return res.Cards.Cards_.ToList();
         }
 
+        public async Task Exit()
+        {
+            var res = ExitResponse.Parser.ParseFrom(await Rpc(Operation.Exit));
+            
+            if (!res.Success)
+            {
+                throw new Exception("exit failed");
+            }
+        }
+
         public Task Reconnect()
         {
             throw new NotImplementedException();

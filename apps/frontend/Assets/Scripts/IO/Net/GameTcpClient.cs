@@ -109,7 +109,7 @@ namespace IO.Net
             }, token);
         }
 
-        public async Task ConnectAsync(string name)
+        public async Task<Player> ConnectAsync(string name)
         {
             await _client.ConnectAsync(_host, _port);
             Loop();
@@ -125,6 +125,8 @@ namespace IO.Net
             {
                 throw new Exception("create player failed");
             }
+
+            return res.Player;
         }
 
         public async Task<List<LobbyInfo>> GetLobbies()
@@ -206,7 +208,7 @@ namespace IO.Net
                 res.NextPlayer);
         }
 
-        public async Task<bool> SetTile(uint x, uint y, uint cardIndex)
+        public async Task SetTile(uint x, uint y, uint cardIndex)
         {
             var req = new SetTileRequest()
             {
@@ -223,8 +225,6 @@ namespace IO.Net
             {
                 throw new Exception("set tile failed");
             }
-
-            return res.Success;
         }
 
         public async Task<List<HandCard>> GetNewCard()
@@ -277,6 +277,16 @@ namespace IO.Net
             }
 
             return res.Cards.Cards_.ToList();
+        }
+
+        public async Task Exit()
+        {
+            var res = ExitResponse.Parser.ParseFrom(await Rpc(Operation.Exit));
+            
+            if (!res.Success)
+            {
+                throw new Exception("exit failed");
+            }
         }
 
         public Task Reconnect()

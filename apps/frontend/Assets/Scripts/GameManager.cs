@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using IO.Net;
 using Protos.Game;
@@ -27,7 +28,9 @@ public class GameManager : MonoBehaviour
     private float _heartBeatTime;
     public uint PlayerID { get; private set; }
     private List<HandCard> _handCards;
-    private List<Player> _players;
+    private Player _mainPlayer;
+    private Player _currentPlayer;
+    private Player _nextPlayer;
     public GameTcpClient GameTcpClient { get; private set; }
 
     public static GameManager Instance { get; private set; }
@@ -48,7 +51,9 @@ public class GameManager : MonoBehaviour
         startPanel.gameObject.SetActive(true);
         lobbyPanel.gameObject.SetActive(false);
         roomPanel.gameObject.SetActive(false);
-        _players = new List<Player>();
+        _mainPlayer = new Player();
+        _currentPlayer = new Player();
+        _nextPlayer = new Player();
     }
 
     private void Update()
@@ -94,13 +99,45 @@ public class GameManager : MonoBehaviour
 
     public void SetPlayers(Player player1, Player player2)
     {
-        _players.Clear();
-        _players.Add(player1);
-        _players.Add(player2);
+        _currentPlayer = player1;
+        _nextPlayer = player2;
     }
 
-    public List<Player> GetPlayers()
+    public void SetMainPlayer(Player player)
     {
-        return _players;
+        _mainPlayer = player;
+    }
+
+    public Player GetMainPlayer()
+    {
+        return _mainPlayer;
+    }
+
+    public Player GetCurrentPlayer()
+    {
+        return _currentPlayer;
+    }
+
+    public Player GetNextPlayer()
+    {
+        return _nextPlayer;
+    }
+
+    public void SetRoomPanel(RoomPanel tmpPanel)
+    {
+        roomPanel = tmpPanel;
+    }
+
+    public void SetLobbyPanel(LobbyPanel tmpPanel)
+    {
+        lobbyPanel = tmpPanel;
+        roomPanel.gameObject.SetActive(false);
+        lobbyPanel.gameObject.SetActive(true);
+        startPanel.gameObject.SetActive(false);
+    }
+
+    public void SetStartPanel(StartPanel tmpPanel)
+    {
+        startPanel = tmpPanel;
     }
 }

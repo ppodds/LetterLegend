@@ -19,6 +19,7 @@ public class FinishTurn : MonoBehaviour
             timer.ResetCurrentTime();
             _handField.SetHandField(res.Item1);
             playerShowText.SetPlayerName(res.Item2, res.Item3);
+            GameManager.Instance.SetPlayers(res.Item2, res.Item3);
         }
     }
 }

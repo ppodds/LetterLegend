@@ -82,6 +82,7 @@ public class HandField : MonoBehaviour
 
             _selectBlockUI = block;
             _selectBlockPosition = _selectBlockUI.transform.position;
+            //Debug.Log(_selectBlockPosition);
             break;
         }
     }
@@ -170,13 +171,13 @@ public class HandField : MonoBehaviour
                 continue;
             }
 
-            var currentPosition = handField.GetComponent<RectTransform>().position;
             var widthRef = (handField.GetComponent<RectTransform>().rect.width -
                             blockUI.GetComponent<RectTransform>().rect.width) / 2;
             var bottomCenter =
-                new Vector3(currentPosition.x - widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
-                    currentPosition.y, 0f);
-            _blockList[i] = Instantiate(blockUI, bottomCenter, Quaternion.identity, this.transform);
+                new Vector3(-widthRef + (blockUI.GetComponent<RectTransform>().rect.width + 10) * i,
+                    0f, 0f);
+            _blockList[i] = Instantiate(blockUI, new Vector3(0, 0, 0), Quaternion.identity, this.transform);
+            _blockList[i].GetComponent<Transform>().transform.localPosition = bottomCenter;
             _blockList[i].GetComponent<BlockUI>().SetText(handCards[i].Card.Symbol);
         }
     }

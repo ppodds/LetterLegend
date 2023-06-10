@@ -92,8 +92,8 @@ mod tests {
     };
 
     use super::*;
-    #[test]
-    fn handle_request_with_test_user_in_his_turn_should_set_tile(
+    #[tokio::test]
+    async fn handle_request_with_test_user_in_his_turn_should_set_tile(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = SetTileController::new(
@@ -126,8 +126,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_request_with_test_user_is_not_his_round_should_return_error(
+    #[tokio::test]
+    async fn handle_request_with_test_user_is_not_his_round_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = SetTileController::new(
@@ -174,8 +174,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_request_with_test_user_set_tile_out_of_board_should_return_error(
+    #[tokio::test]
+    async fn handle_request_with_test_user_set_tile_out_of_board_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = SetTileController::new(

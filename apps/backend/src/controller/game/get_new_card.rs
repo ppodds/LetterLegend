@@ -80,8 +80,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn handle_request_with_test_user_is_his_round_should_get_new_card(
+    #[tokio::test]
+    async fn handle_request_with_test_user_is_his_round_should_get_new_card(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = GetNewCardController::new(
@@ -113,8 +113,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_request_with_test_user_is_not_his_round_should_return_error(
+    #[tokio::test]
+    async fn handle_request_with_test_user_is_not_his_round_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = GetNewCardController::new(
@@ -154,8 +154,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_request_with_test_user_has_shuffled_shuffles_again_should_return_error(
+    #[tokio::test]
+    async fn handle_request_with_test_user_has_shuffled_shuffles_again_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = GetNewCardController::new(

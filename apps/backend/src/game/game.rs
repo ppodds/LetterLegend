@@ -6,6 +6,7 @@ use std::{
 use super::{board::Board, game_player::GamePlayer};
 use crate::player::Player;
 
+use tokio::task::JoinHandle;
 #[derive(Debug)]
 pub struct Game {
     pub id: u32,
@@ -13,6 +14,7 @@ pub struct Game {
     players: Mutex<HashMap<u32, Arc<GamePlayer>>>,
     turn_queue: Mutex<LinkedList<Arc<GamePlayer>>>,
     board: Arc<Mutex<Board>>,
+    timeout: Mutex<Option<Arc<JoinHandle<()>>>>,
 }
 
 impl PartialEq for Game {
@@ -25,7 +27,6 @@ impl Game {
     pub fn new(id: u32, players: Vec<Arc<Player>>) -> Self {
         let mut map = HashMap::new();
         let mut queue = LinkedList::new();
-
         for player in players {
             map.insert(player.id, Arc::new(GamePlayer::new(player.clone())));
         }
@@ -39,6 +40,23 @@ impl Game {
             players: Mutex::new(map),
             turn_queue: Mutex::new(queue),
             board: Arc::new(Mutex::new(Board::new())),
+            timeout: Mutex::new(None),
+        }
+    }
+
+    pub fn set_timeout_task(&self, task: Arc<JoinHandle<()>>) {
+        *self.timeout.lock().unwrap() = Some(task);
+    }
+
+    pub fn cancel_timeout_task(&self) -> bool {
+        let mut task_mutex = self.timeout.lock().unwrap();
+        match task_mutex.as_ref() {
+            Some(task) => {
+                task.abort();
+                *task_mutex = None;
+                true
+            }
+            None => false,
         }
     }
 
@@ -95,6 +113,8 @@ impl Game {
 
 #[cfg(test)]
 mod tests {
+    use tokio::time::{sleep, Duration};
+
     use super::*;
 
     use std::error::Error;
@@ -188,6 +208,30 @@ mod tests {
         game.next_turn();
         let person_second = game.get_player_in_this_turn();
         assert_ne!(person_second.player.id, person_first.player.id);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancel_timeout_task_with_exist_timeout_task_should_cancel_the_task_and_return_true(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let player = Arc::new(Player::new(0, String::from("test")));
+        let game = Game::new(0, vec![player.clone()]);
+        let task = Arc::new(tokio::spawn(async {
+            sleep(Duration::from_secs(1)).await;
+        }));
+        game.set_timeout_task(task.clone());
+        assert!(game.cancel_timeout_task());
+        sleep(Duration::from_millis(10)).await;
+        assert!(task.is_finished());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancel_timeout_task_with_none_should_return_false(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let player = Arc::new(Player::new(0, String::from("test")));
+        let game = Game::new(0, vec![player.clone()]);
+        assert!(!game.cancel_timeout_task());
         Ok(())
     }
 }

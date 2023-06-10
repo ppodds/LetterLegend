@@ -82,8 +82,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn handle_request_with_test_card_not_place_in_this_turn_should_return_error(
+    #[tokio::test]
+    async fn handle_request_with_test_card_not_place_in_this_turn_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let lobby_service = Arc::new(LobbyService::new());
         let game_service = Arc::new(GameService::new(HashSet::new()));
@@ -119,8 +119,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_request_with_cancel_card_in_wrong_turn_should_return_err(
+    #[tokio::test]
+    async fn handle_request_with_cancel_card_in_wrong_turn_should_return_err(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let lobby_service = Arc::new(LobbyService::new());
         let game_service = Arc::new(GameService::new(HashSet::new()));
@@ -160,8 +160,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_request_with_cancel_card_should_return_to_cards(
+    #[tokio::test]
+    async fn handle_request_with_cancel_card_should_return_to_cards(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let lobby_service = Arc::new(LobbyService::new());
         let game_service = Arc::new(GameService::new(HashSet::new()));

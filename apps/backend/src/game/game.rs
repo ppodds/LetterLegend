@@ -5,7 +5,7 @@ use std::{
 
 use super::{board::Board, game_player::GamePlayer};
 use crate::player::Player;
-
+pub const END_GAME_TURN: u32 = 16;
 use tokio::task::JoinHandle;
 #[derive(Debug)]
 pub struct Game {
@@ -97,17 +97,26 @@ impl Game {
         self.turn_queue.lock().unwrap().front().unwrap().clone()
     }
 
-    pub fn get_next_turn_player(&self) -> Arc<GamePlayer> {
-        if self.get_players().len() == 1 {
-            return self.get_player_in_this_turn();
+    pub fn get_next_turn_player(&self) -> Option<Arc<GamePlayer>> {
+        if self.get_turns() == END_GAME_TURN {
+            return None;
+        } else if self.get_players().len() == 1 {
+            return Some(self.get_player_in_this_turn());
         }
-        self.turn_queue
-            .lock()
-            .unwrap()
-            .iter()
-            .nth(1)
-            .unwrap()
-            .clone()
+        Some(
+            self.turn_queue
+                .lock()
+                .unwrap()
+                .iter()
+                .nth(1)
+                .unwrap()
+                .clone(),
+        )
+    }
+
+    #[cfg(test)]
+    pub fn set_turn(&self, turn: u32) {
+        *self.turn.lock().unwrap() = turn;
     }
 }
 
@@ -134,29 +143,23 @@ mod tests {
     }
 
     #[test]
-    fn get_next_turn_player_without_parameter_should_return_next_player(
-    ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let player0 = Arc::new(Player::new(0, String::from("test")));
-        let player1 = Arc::new(Player::new(1, String::from("test1")));
-        let game = Game::new(0, vec![player0.clone(), player1.clone()]);
-        let players = game.get_players();
-        assert_eq!(
-            game.get_next_turn_player().player,
-            players.get(1).unwrap().player
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn get_next_turn_player_only_one_person_without_parameter_should_return_next_player(
+    fn get_next_turn_player_only_one_person_without_parameter_should_return_previous_player(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player0 = Arc::new(Player::new(0, String::from("test")));
         let game = Game::new(0, vec![player0.clone()]);
         let players = game.get_players();
-        assert_eq!(
-            game.get_next_turn_player().player,
-            players.get(0).unwrap().player
-        );
+        let next_player = game.get_next_turn_player().unwrap();
+        assert_eq!(next_player.player, players.get(0).unwrap().player);
+        Ok(())
+    }
+
+    #[test]
+    fn get_next_turn_player_only_one_person_exceed_end_game_turn_without_parameter_should_return_none(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let player0 = Arc::new(Player::new(0, String::from("test")));
+        let game = Game::new(0, vec![player0.clone()]);
+        game.set_turn(END_GAME_TURN);
+        assert!(game.get_next_turn_player().is_none());
         Ok(())
     }
 

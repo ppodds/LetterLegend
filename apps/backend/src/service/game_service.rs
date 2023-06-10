@@ -13,7 +13,12 @@ use tokio::{
 use tokio::{task, time::sleep};
 
 use crate::{
-    game::{card::Card, game::Game, game_player::GamePlayer, tile::Tile},
+    game::{
+        card::Card,
+        game::{Game, END_GAME_TURN},
+        game_player::GamePlayer,
+        tile::Tile,
+    },
     lobby::lobby::Lobby,
     player::Player,
 };
@@ -114,9 +119,12 @@ impl GameService {
                                 current_player: Some(crate::model::player::player::Player::from(
                                     game.get_player_in_this_turn(),
                                 )),
-                                next_player: Some(crate::model::player::player::Player::from(
-                                    game.get_next_turn_player(),
-                                )),
+                                next_player: match game.get_next_turn_player() {
+                                    Some(game_player) => Some(
+                                        crate::model::player::player::Player::from(game_player),
+                                    ),
+                                    None => None,
+                                },
                             })),
                         ))
                         .await
@@ -156,9 +164,12 @@ impl GameService {
                                 current_player: Some(crate::model::player::player::Player::from(
                                     game.get_player_in_this_turn(),
                                 )),
-                                next_player: Some(crate::model::player::player::Player::from(
-                                    game.get_next_turn_player(),
-                                )),
+                                next_player: match game.get_next_turn_player() {
+                                    Some(game_player) => Some(
+                                        crate::model::player::player::Player::from(game_player),
+                                    ),
+                                    None => None,
+                                },
                             })),
                         ))
                         .await
@@ -284,7 +295,12 @@ impl GameService {
             Some(words) => words,
             None => return Err("invalid word".into()),
         };
-        GameService::finish_turn(game);
+        GameService::finish_turn(game.clone());
+        if game.get_turns() > END_GAME_TURN {
+            self.remove_game(game.clone())?;
+        } else {
+            GameService::start_countdown(game);
+        }
         Ok(words)
     }
 
@@ -429,6 +445,39 @@ mod tests {
             game.get_board().lock().unwrap().tiles[0][0] = Some(Tile::new('a', player.clone(), 1));
         }
         assert!(game_service.validate_board_and_finish_turn(game).is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn validate_board_and_finish_turn_when_game_end_should_remove_game(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new(HashSet::new());
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let player1 = Arc::new(Player::new(1, String::from("test2")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player1)?;
+        lobby.get_player(0).unwrap().set_ready(true);
+        lobby.get_player(1).unwrap().set_ready(true);
+        let game = game_service.start_game(player.clone(), lobby)?;
+        game.set_turn(END_GAME_TURN + 1);
+        game_service.validate_board_and_finish_turn(game)?;
+        assert_eq!(game_service.get_gamees().len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn validate_board_and_finish_turn_when_game_not_end_should_not_remove_game(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new(HashSet::new());
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let player1 = Arc::new(Player::new(1, String::from("test2")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player1)?;
+        lobby.get_player(0).unwrap().set_ready(true);
+        lobby.get_player(1).unwrap().set_ready(true);
+        let game = game_service.start_game(player.clone(), lobby)?;
+        game_service.validate_board_and_finish_turn(game)?;
+        assert_eq!(game_service.get_gamees().len(), 1);
         Ok(())
     }
 

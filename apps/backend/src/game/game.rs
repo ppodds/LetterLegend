@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[test]
-    fn get_next_turn_player_only_one_person_without_parameter_should_return_next_player(
+    fn get_next_turn_player_only_one_person_without_parameter_should_return_previous_player(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player0 = Arc::new(Player::new(0, String::from("test")));
         let game = Game::new(0, vec![player0.clone()]);
@@ -154,13 +154,11 @@ mod tests {
     }
 
     #[test]
-    fn get_next_turn_player_only_one_person_after_16_turns_without_parameter_should_return_none(
+    fn get_next_turn_player_only_one_person_exceed_end_game_turn_without_parameter_should_return_none(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player0 = Arc::new(Player::new(0, String::from("test")));
         let game = Game::new(0, vec![player0.clone()]);
-        for _i in 0..15 {
-            game.next_turn();
-        }
+        game.set_turn(END_GAME_TURN);
         assert!(game.get_next_turn_player().is_none());
         Ok(())
     }

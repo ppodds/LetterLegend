@@ -4,10 +4,12 @@ package game.finish_turn;
 option csharp_namespace = "Protos.Game";
 import "player/player.proto";
 import "game/cards.proto";
+import "game/words.proto";
 
 message FinishTurnResponse {
     bool success = 1;
     optional player.player.Player current_player = 2;
     optional player.player.Player next_player = 3;
     optional cards.Cards cards = 4;
+    optional words.Words words = 5;
 }

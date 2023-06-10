@@ -277,10 +277,11 @@ impl GameService {
     pub fn validate_board_and_finish_turn(
         &self,
         game: Arc<Game>,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if !game.get_board().lock().unwrap().validate(&self.wordlist) {
-            return Err("invalid word".into());
-        }
+    ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
+        let words = match game.get_board().lock().unwrap().validate(&self.wordlist) {
+            Some(words) => words,
+            None => return Err("invalid word".into()),
+        };
         let player_in_this_turn = game.get_player_in_this_turn();
         player_in_this_turn.get_new_card();
         self.start_countdown(game.clone());
@@ -315,7 +316,7 @@ impl GameService {
                 });
             }
         }
-        Ok(())
+        Ok(words)
     }
 
     pub fn remove_selected_tile(&self, x: u32, y: u32, game: Arc<Game>) {

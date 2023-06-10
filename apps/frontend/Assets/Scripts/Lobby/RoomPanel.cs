@@ -75,6 +75,7 @@ public class RoomPanel : MonoBehaviour
 
     public void UpdateRoom()
     {
+        ClearList();
         foreach (var player in Lobby.Players)
         {
             var t = Instantiate(playerItem, playerListTransform).GetComponent<PlayerItem>();

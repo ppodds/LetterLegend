@@ -134,7 +134,7 @@ impl GameService {
         self.games.lock().unwrap().get(&id).cloned()
     }
 
-    pub fn timeout_finish_turn(game: Arc<Game>) {
+    pub fn finish_turn(game: Arc<Game>) {
         let player_in_this_turn = game.get_player_in_this_turn();
         player_in_this_turn.get_new_card();
         game.next_turn();
@@ -172,7 +172,7 @@ impl GameService {
         let game_bak = game.clone();
         let task = task::spawn(async move {
             sleep(Duration::from_secs(30)).await;
-            Self::timeout_finish_turn(game.clone());
+            Self::finish_turn(game.clone());
         });
         game_bak.set_timeout_task(task);
     }
@@ -282,40 +282,7 @@ impl GameService {
             Some(words) => words,
             None => return Err("invalid word".into()),
         };
-        let player_in_this_turn = game.get_player_in_this_turn();
-        player_in_this_turn.get_new_card();
-        self.start_countdown(game.clone());
-        #[cfg(not(test))]
-        {
-            for game_player in game.get_players() {
-                if game_player == player_in_this_turn {
-                    continue;
-                }
-                let game = game.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = game_player
-                        .player
-                        .send_message(Response::new(
-                            State::GameBroadcast as u32,
-                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
-                                event: GameEvent::FinishTurn as i32,
-                                board: None,
-                                players: None,
-                                current_player: Some(crate::model::player::player::Player::from(
-                                    game.get_player_in_this_turn(),
-                                )),
-                                next_player: Some(crate::model::player::player::Player::from(
-                                    game.get_next_turn_player(),
-                                )),
-                            })),
-                        ))
-                        .await
-                    {
-                        eprintln!("Error sending game broadcast: {}", e);
-                    }
-                });
-            }
-        }
+        GameService::finish_turn(game);
         Ok(words)
     }
 
@@ -490,7 +457,7 @@ mod tests {
         lobby.get_player(1).unwrap().set_ready(true);
         let game = game_service.start_game(player, lobby)?;
         let turn_before = game.clone().get_turns();
-        GameService::timeout_finish_turn(game.clone());
+        GameService::finish_turn(game.clone());
         assert!(turn_before + 1 == game.get_turns());
         Ok(())
     }

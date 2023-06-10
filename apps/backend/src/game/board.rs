@@ -103,7 +103,7 @@ impl Board {
                     let word = current_word.unwrap();
                     if dict.contains(&word) {
                         words.push(word);
-                    } else if !dict.contains(&word) && is_horizontal_word_arr[row][col] == false {
+                    } else if !is_horizontal_word_arr[row][col] {
                         return None;
                     }
                     current_word = None;
@@ -123,7 +123,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn validate_with_the_word_row_should_return_true() -> Result<(), Box<dyn Error + Sync + Send>> {
+    fn validate_with_the_word_row_should_return_vector_with_string_the(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let mut wordlist = HashSet::new();
         wordlist.insert(String::from("the"));
         let mut board = Board::new();
@@ -157,7 +158,8 @@ mod tests {
     }
 
     #[test]
-    fn validate_with_tub_word_col_should_return_true() -> Result<(), Box<dyn Error + Sync + Send>> {
+    fn validate_with_tub_word_col_should_return_vector_with_string_tub(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let mut wordlist = HashSet::new();
         wordlist.insert(String::from("tub"));
         let mut board = Board::new();
@@ -174,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_with_the_word_tilt_should_return_false() -> Result<(), Box<dyn Error + Sync + Send>>
+    fn validate_with_the_word_tilt_should_return_none() -> Result<(), Box<dyn Error + Sync + Send>>
     {
         let mut wordlist = HashSet::new();
         wordlist.insert(String::from("the"));
@@ -192,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_with_the_word_jump_to_next_row_should_return_true(
+    fn validate_with_the_word_jump_to_next_row_should_return_vector_with_string_the(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let mut wordlist = HashSet::new();
         wordlist.insert(String::from("the"));
@@ -210,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_with_the_word_jump_to_next_col_should_return_true(
+    fn validate_with_the_word_jump_to_next_col_should_return_vector_with_string_the(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let mut wordlist = HashSet::new();
         wordlist.insert(String::from("the"));
@@ -228,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_with_the_word_exceed_horizontal_border_should_return_false(
+    fn validate_with_the_word_exceed_horizontal_border_should_return_none(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let mut wordlist = HashSet::new();
         wordlist.insert(String::from("the"));
@@ -246,7 +248,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_with_the_word_exceed_vertical_border_should_return_false(
+    fn validate_with_the_word_exceed_vertical_border_should_return_none(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let mut wordlist = HashSet::new();
         wordlist.insert(String::from("the"));
@@ -264,12 +266,14 @@ mod tests {
     }
 
     #[test]
-    fn validate_with_space_should_return_true() -> Result<(), Box<dyn Error + Sync + Send>> {
+    fn validate_with_space_should_return_some_with_space_vector(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let mut wordlist = HashSet::new();
         wordlist.insert(String::from("the"));
         let board = Board::new();
         let list = board.validate(&wordlist);
         assert!(list.is_some());
+        assert!(list.unwrap().len() == 0);
         Ok(())
     }
 }

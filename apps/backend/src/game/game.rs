@@ -225,4 +225,13 @@ mod tests {
         assert!(task.is_finished());
         Ok(())
     }
+
+    #[tokio::test]
+    async fn cancel_timeout_task_with_none_should_return_false(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let player = Arc::new(Player::new(0, String::from("test")));
+        let game = Game::new(0, vec![player.clone()]);
+        assert!(!game.cancel_timeout_task());
+        Ok(())
+    }
 }

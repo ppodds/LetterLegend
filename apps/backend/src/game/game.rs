@@ -97,17 +97,22 @@ impl Game {
         self.turn_queue.lock().unwrap().front().unwrap().clone()
     }
 
-    pub fn get_next_turn_player(&self) -> Arc<GamePlayer> {
-        if self.get_players().len() == 1 {
-            return self.get_player_in_this_turn();
+    pub fn get_next_turn_player(&self) -> Option<Arc<GamePlayer>> {
+        let end_game_turn = 16;
+        if self.get_turns() == end_game_turn {
+            return None;
+        } else if self.get_players().len() == 1 {
+            return Some(self.get_player_in_this_turn());
         }
-        self.turn_queue
-            .lock()
-            .unwrap()
-            .iter()
-            .nth(1)
-            .unwrap()
-            .clone()
+        Some(
+            self.turn_queue
+                .lock()
+                .unwrap()
+                .iter()
+                .nth(1)
+                .unwrap()
+                .clone(),
+        )
     }
 }
 
@@ -140,10 +145,8 @@ mod tests {
         let player1 = Arc::new(Player::new(1, String::from("test1")));
         let game = Game::new(0, vec![player0.clone(), player1.clone()]);
         let players = game.get_players();
-        assert_eq!(
-            game.get_next_turn_player().player,
-            players.get(1).unwrap().player
-        );
+        let next_player = game.get_next_turn_player().unwrap();
+        assert_eq!(next_player.player, players.get(1).unwrap().player);
         Ok(())
     }
 
@@ -153,10 +156,8 @@ mod tests {
         let player0 = Arc::new(Player::new(0, String::from("test")));
         let game = Game::new(0, vec![player0.clone()]);
         let players = game.get_players();
-        assert_eq!(
-            game.get_next_turn_player().player,
-            players.get(0).unwrap().player
-        );
+        let next_player = game.get_next_turn_player().unwrap();
+        assert_eq!(next_player.player, players.get(0).unwrap().player);
         Ok(())
     }
 

@@ -115,7 +115,7 @@ impl GameService {
                                     game.get_player_in_this_turn(),
                                 )),
                                 next_player: Some(crate::model::player::player::Player::from(
-                                    game.get_next_turn_player(),
+                                    game.get_next_turn_player().unwrap(),
                                 )),
                             })),
                         ))
@@ -134,12 +134,17 @@ impl GameService {
         self.games.lock().unwrap().get(&id).cloned()
     }
 
-    pub fn finish_turn(game: Arc<Game>) {
+    pub fn finish_turn(game: Arc<Game>) -> bool {
         let player_in_this_turn = game.get_player_in_this_turn();
+        let mut end_of_game = false;
+        let end_game_turn = 16;
         player_in_this_turn.get_new_card();
         game.cancel_timeout_task();
         game.next_turn();
         GameService::start_countdown(game.clone());
+        if end_game_turn == game.get_turns() {
+            end_of_game = true;
+        }
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
@@ -156,9 +161,12 @@ impl GameService {
                                 current_player: Some(crate::model::player::player::Player::from(
                                     game.get_player_in_this_turn(),
                                 )),
-                                next_player: Some(crate::model::player::player::Player::from(
-                                    game.get_next_turn_player(),
-                                )),
+                                next_player: match game.get_next_turn_player() {
+                                    Some(game_player) => Some(
+                                        crate::model::player::player::Player::from(game_player),
+                                    ),
+                                    None => None,
+                                },
                             })),
                         ))
                         .await
@@ -168,6 +176,7 @@ impl GameService {
                 });
             }
         }
+        end_of_game
     }
 
     pub fn start_countdown(game: Arc<Game>) {
@@ -429,6 +438,24 @@ mod tests {
             game.get_board().lock().unwrap().tiles[0][0] = Some(Tile::new('a', player.clone(), 1));
         }
         assert!(game_service.validate_board_and_finish_turn(game).is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn game_go_into_turn_15_finish_turn_next_turn_player_should_return_none(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new(HashSet::new());
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let player1 = Arc::new(Player::new(1, String::from("test2")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player1)?;
+        lobby.get_player(0).unwrap().set_ready(true);
+        lobby.get_player(1).unwrap().set_ready(true);
+        let game = game_service.start_game(player.clone(), lobby)?;
+        for _i in 0..14 {
+            game.next_turn();
+        }
+        assert!(GameService::finish_turn(game));
         Ok(())
     }
 

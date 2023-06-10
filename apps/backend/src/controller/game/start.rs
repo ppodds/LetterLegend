@@ -71,7 +71,7 @@ impl Controller for StartController {
                 game.get_player_in_this_turn(),
             )),
             next_player: Some(crate::model::player::player::Player::from(
-                game.get_next_turn_player(),
+                game.get_next_turn_player().unwrap(),
             )),
         }))
     }

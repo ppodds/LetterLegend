@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -42,5 +43,10 @@ public class StartPanel : MonoBehaviour
 
         gameObject.SetActive(false);
         lobbyPanel.SetActive(true);
+    }
+
+    private void Awake()
+    {
+        GameManager.Instance.SetStartPanel(this);
     }
 }

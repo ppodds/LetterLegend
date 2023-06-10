@@ -13,7 +13,12 @@ use tokio::{
 use tokio::{task, time::sleep};
 
 use crate::{
-    game::{card::Card, game::Game, game_player::GamePlayer, tile::Tile},
+    game::{
+        card::Card,
+        game::{Game, END_GAME_TURN},
+        game_player::GamePlayer,
+        tile::Tile,
+    },
     lobby::lobby::Lobby,
     player::Player,
 };
@@ -134,17 +139,12 @@ impl GameService {
         self.games.lock().unwrap().get(&id).cloned()
     }
 
-    pub fn finish_turn(game: Arc<Game>) -> bool {
+    pub fn finish_turn(game: Arc<Game>) {
         let player_in_this_turn = game.get_player_in_this_turn();
-        let mut end_of_game = false;
-        let end_game_turn = 16;
         player_in_this_turn.get_new_card();
         game.cancel_timeout_task();
         game.next_turn();
         GameService::start_countdown(game.clone());
-        if end_game_turn == game.get_turns() {
-            end_of_game = true;
-        }
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
@@ -176,7 +176,6 @@ impl GameService {
                 });
             }
         }
-        end_of_game
     }
 
     pub fn start_countdown(game: Arc<Game>) {
@@ -293,7 +292,12 @@ impl GameService {
             Some(words) => words,
             None => return Err("invalid word".into()),
         };
-        GameService::finish_turn(game);
+        GameService::finish_turn(game.clone());
+        if game.get_turns() > END_GAME_TURN {
+            self.remove_game(game.clone())?;
+        } else {
+            GameService::start_countdown(game);
+        }
         Ok(words)
     }
 
@@ -442,7 +446,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn game_go_into_turn_15_finish_turn_next_turn_player_should_return_none(
+    async fn validate_board_and_finish_turn_when_game_end_should_remove_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new(HashSet::new());
         let player = Arc::new(Player::new(0, String::from("test1")));
@@ -452,10 +456,25 @@ mod tests {
         lobby.get_player(0).unwrap().set_ready(true);
         lobby.get_player(1).unwrap().set_ready(true);
         let game = game_service.start_game(player.clone(), lobby)?;
-        for _i in 0..14 {
-            game.next_turn();
-        }
-        assert!(GameService::finish_turn(game));
+        game.set_turn(END_GAME_TURN + 1);
+        game_service.validate_board_and_finish_turn(game)?;
+        assert_eq!(game_service.get_gamees().len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn validate_board_and_finish_turn_when_game_not_end_should_not_remove_game(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = GameService::new(HashSet::new());
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let player1 = Arc::new(Player::new(1, String::from("test2")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player1)?;
+        lobby.get_player(0).unwrap().set_ready(true);
+        lobby.get_player(1).unwrap().set_ready(true);
+        let game = game_service.start_game(player.clone(), lobby)?;
+        game_service.validate_board_and_finish_turn(game)?;
+        assert_eq!(game_service.get_gamees().len(), 1);
         Ok(())
     }
 

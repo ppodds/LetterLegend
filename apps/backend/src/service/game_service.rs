@@ -126,7 +126,7 @@ impl GameService {
                 });
             }
         }
-        self.start_countdown(game.clone());
+        GameService::start_countdown(game.clone());
         Ok(game)
     }
 
@@ -137,7 +137,9 @@ impl GameService {
     pub fn finish_turn(game: Arc<Game>) {
         let player_in_this_turn = game.get_player_in_this_turn();
         player_in_this_turn.get_new_card();
+        game.cancel_timeout_task();
         game.next_turn();
+        GameService::start_countdown(game.clone());
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
@@ -168,12 +170,12 @@ impl GameService {
         }
     }
 
-    pub fn start_countdown(&self, game: Arc<Game>) {
+    pub fn start_countdown(game: Arc<Game>) {
         let game_bak = game.clone();
-        let task = task::spawn(async move {
+        let task = Arc::new(task::spawn(async move {
             sleep(Duration::from_secs(30)).await;
-            Self::finish_turn(game.clone());
-        });
+            GameService::finish_turn(game.clone());
+        }));
         game_bak.set_timeout_task(task);
     }
 

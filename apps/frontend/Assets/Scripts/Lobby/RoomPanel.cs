@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Protos.Lobby;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -75,6 +76,7 @@ public class RoomPanel : MonoBehaviour
 
     public void UpdateRoom()
     {
+        ClearList();
         foreach (var player in Lobby.Players)
         {
             var t = Instantiate(playerItem, playerListTransform).GetComponent<PlayerItem>();

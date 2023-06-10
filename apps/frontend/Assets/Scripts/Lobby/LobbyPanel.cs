@@ -63,4 +63,9 @@ public class LobbyPanel : MonoBehaviour
         GameManager.Instance.startPanel.gameObject.SetActive(true);
         gameObject.SetActive(false);
     }
+
+    private void Awake()
+    {
+        GameManager.Instance.SetLobbyPanel(this);
+    }
 }

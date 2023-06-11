@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using TMPro;
 using UnityEngine;
+using System.Threading.Tasks;
 
 public class Dict : MonoBehaviour
 {
@@ -31,14 +34,14 @@ public class Dict : MonoBehaviour
         _rightButton.enabled = false;
     }
 
-    public void AddWord(List<string> newWords)
+    public async void AddWord(List<string> newWords)
     {
         _words.Clear();
         
         foreach (var newWord in newWords)
         {
-            _words.Add(newWord);
-            //_words.Add(API(newWord));    
+            var trans = await GetContent(newWord);
+            _words.Add(newWord + ": " + trans);
         }
 
         if (_words.Count <= 0)
@@ -78,5 +81,45 @@ public class Dict : MonoBehaviour
             _leftButton.enabled = false;
         }
         _rightButton.enabled = true;
+    }
+
+    private async Task<string> GetContent(string str)
+    {
+        var client = new HttpClient();
+        var request = new HttpRequestMessage
+        {
+            Method = HttpMethod.Post,
+            RequestUri = new Uri("https://google-translate1.p.rapidapi.com/language/translate/v2"),
+            Headers =
+            {
+                { "X-RapidAPI-Key", "c2df73dcdemsh8788b04ba66a0d5p1a7d71jsnddb9d8debe41" },
+                { "X-RapidAPI-Host", "google-translate1.p.rapidapi.com" },
+            },
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                { "q", str },
+                { "target", "zh-TW" },
+                { "source", "en" },
+            }),
+        };
+        using (var response = await client.SendAsync(request))
+        {
+            response.EnsureSuccessStatusCode();
+            var body = await response.Content.ReadAsStringAsync();
+            var index = body.IndexOf("\"translatedText\":\"");
+            var returnStr = "";
+            for (var i = index + 18; i < body.Length; i++)
+            {
+                if (body[i] != '\"')
+                {
+                    returnStr += body[i];
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return returnStr;
+        }
     }
 }

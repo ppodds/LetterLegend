@@ -144,7 +144,7 @@ mod tests {
         let player = service.add_player(0, String::from("test"));
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         lobby.get_player(player.id).unwrap().set_ready(true);
-        let game = game_service.start_game(player.clone(), lobby)?;
+        let game = GameService::start_game(game_service, player.clone(), lobby)?;
         service.remove_player(player.clone())?;
         assert_eq!(game.get_players().len(), 0);
         assert!(player.get_game().is_none());

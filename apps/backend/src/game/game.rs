@@ -113,7 +113,7 @@ impl Game {
     }
 
     pub fn get_next_turn_player(&self) -> Option<Arc<GamePlayer>> {
-        if self.get_turns() == END_GAME_TURN {
+        if self.get_turns() >= END_GAME_TURN {
             return None;
         } else if self.get_players().len() == 1 {
             return Some(self.get_player_in_this_turn());
@@ -173,7 +173,9 @@ mod tests {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player0 = Arc::new(Player::new(0, String::from("test")));
         let game = Game::new(0, vec![player0.clone()]);
-        game.set_turn(END_GAME_TURN);
+        for _i in 0..15 {
+            game.next_turn();
+        }
         assert!(game.get_next_turn_player().is_none());
         Ok(())
     }

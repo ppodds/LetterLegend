@@ -172,8 +172,12 @@ impl GameService {
         game: Arc<Game>,
         words: &Vec<String>,
         origin_player: Arc<GamePlayer>,
+        send_to_origin_player: bool,
     ) {
         for game_player in game.get_players() {
+            if game_player == origin_player && !send_to_origin_player {
+                continue;
+            }
             let game = game.clone();
             let board = Some(crate::model::game::board::Board::from({
                 &game.get_board().lock().unwrap().clone()
@@ -223,7 +227,12 @@ impl GameService {
             match GameService::timeout_finish_turn(game_service, game.clone()) {
                 Ok(_words) => {
                     #[cfg(not(test))]
-                    GameService::send_finish_turn_broadcast(game.clone(), &_words, _origin_player);
+                    GameService::send_finish_turn_broadcast(
+                        game.clone(),
+                        &_words,
+                        _origin_player,
+                        true,
+                    );
                 }
                 Err(e) => eprintln!("encounter error when finish turn: {}", e),
             }
@@ -401,7 +410,7 @@ impl GameService {
             GameService::start_countdown(game_service, game.clone());
         }
         #[cfg(not(test))]
-        GameService::send_finish_turn_broadcast(game.clone(), &words, _origin_player);
+        GameService::send_finish_turn_broadcast(game.clone(), &words, _origin_player, false);
         Ok(words)
     }
 

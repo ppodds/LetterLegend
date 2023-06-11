@@ -20,6 +20,8 @@ public class Board : MonoBehaviour
     private Queue<GameBroadcast> _gameBroadcasts;
     private Camera _camera;
     public Sprite block3D;
+    public Sprite square;
+    
     private void Awake()
     {
         GameManager.Instance.GameTcpClient.Board = this;
@@ -117,7 +119,6 @@ public class Board : MonoBehaviour
             blockComponent.transform.Find("Square").transform.Find("Text").GetComponent<TextMeshPro>().sortingLayerID = sortId;
             blockComponent.transform.Find("Square").GetComponent<SpriteRenderer>().sprite = block3D;
             blockComponent.transform.Find("Square").transform.GetComponent<Animator>().Play("BlockUp");
-            // blockComponent.transform.Find("Square").transform.position = new Vector3(0, 0.05f, 0);
             blockComponent.SetText(_handField.GetText());
             _handField.DeleteSelectObject();
             return;
@@ -159,6 +160,11 @@ public class Board : MonoBehaviour
                     {
                         count++;
                         targetBlock = blockComponent;
+                        var sortId = SortingLayer.NameToID("Board");
+                        targetBlock.transform.Find("Square").GetComponent<SpriteRenderer>().sortingLayerID = sortId;
+                        targetBlock.transform.Find("Square").transform.Find("Text").GetComponent<TextMeshPro>().sortingLayerID = sortId;
+                        targetBlock.transform.Find("Square").GetComponent<SpriteRenderer>().sprite = block3D;
+                        targetBlock.transform.Find("Square").transform.GetComponent<Animator>().Play("BlockUp");
                     }
 
                     blockComponent.SetText(board.Rows[i].Columns[j].Tile.Char);
@@ -169,6 +175,11 @@ public class Board : MonoBehaviour
                     {
                         count++;
                         targetBlock = blockComponent;
+                        targetBlock.transform.Find("Square").GetComponent<SpriteRenderer>().sprite = square;
+                        targetBlock.transform.Find("Square").transform.position = new Vector3(0, -0.05f, 0);
+                        targetBlock.transform.Find("Square").GetComponent<SpriteRenderer>().sortingLayerID = 0;
+                        targetBlock.transform.Find("Square").transform.Find("Text").GetComponent<TextMeshPro>().sortingLayerID = 0;
+                        targetBlock.transform.Find("Square").transform.GetComponent<Animator>().Play("Idle");
                     }
 
                     blockComponent.SetText("");

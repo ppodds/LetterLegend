@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Protos.Game;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -76,7 +77,12 @@ public class Board : MonoBehaviour
             case GameEvent.FinishTurn:
                 playerShowText.SetPlayerName(res.CurrentPlayer, res.NextPlayer);
                 GameManager.Instance.SetPlayers(res.CurrentPlayer, res.NextPlayer);
-                //dict.AddWord();
+                SetBoard(res.Board);
+                if (res.Cards != null)
+                {
+                    _handField.SetHandField(res.Cards.Cards_.ToList());
+                }
+                dict.AddWord(res.Words.Words_.ToList());
                 timer.ResetCurrentTime();
                 break;
             default:

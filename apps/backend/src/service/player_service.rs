@@ -72,10 +72,12 @@ impl PlayerService {
         match self.online_player_map.lock().unwrap().remove(&player.id) {
             Some(player) => {
                 if player.clone().get_lobby().is_some() {
+                    println!("cleaning: remove player from lobby");
                     self.lobby_service
                         .remove_player_from_lobby(player.clone())?;
                 };
                 if player.clone().get_game().is_some() {
+                    println!("cleaning: remove player from game");
                     self.game_service.remove_player_from_game(player.clone())?;
                 };
                 Ok(player)

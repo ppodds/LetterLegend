@@ -761,7 +761,7 @@ MonoBehaviour:
   dict: {fileID: 2021667595}
   playerShowText: {fileID: 174577450}
   block: {fileID: 3714272542615694467, guid: 858532879f74f60478b1aa9859e58d19, type: 3}
-  block3D: {fileID: 21300000, guid: 0f1b3a5b8e6ad934c9578d177eeac97e, type: 3}
+  block3D: {fileID: 21300000, guid: b9811ab6b4b7656478ae37bde7531cd9, type: 3}
   square: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
 --- !u!4 &431700460
 Transform:

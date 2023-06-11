@@ -247,6 +247,9 @@ impl GameService {
         };
         if !GameService::finish_turn(game_service.clone(), game.clone())? {
             GameService::start_countdown(game_service, game);
+        } else {
+            #[cfg(not(test))]
+            GameService::boardcast_game_end(game);
         }
         Ok(words)
     }
@@ -352,6 +355,32 @@ impl GameService {
         }
     }
 
+    #[cfg(not(test))]
+    fn boardcast_game_end(game: Arc<Game>) {
+        for game_player in game.get_players() {
+            tokio::spawn(async move {
+                if let Err(e) = game_player
+                    .player
+                    .send_message(Response::new(
+                        State::GameBroadcast as u32,
+                        Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                            event: GameEvent::Destroy as i32,
+                            board: None,
+                            players: None,
+                            current_player: None,
+                            next_player: None,
+                            words: None,
+                            cards: None,
+                        })),
+                    ))
+                    .await
+                {
+                    eprintln!("Error sending game broadcast: {}", e);
+                }
+            });
+        }
+    }
+
     pub fn validate_board_and_finish_turn(
         game_service: Arc<GameService>,
         game: Arc<Game>,
@@ -367,6 +396,9 @@ impl GameService {
         };
         if !GameService::finish_turn(game_service.clone(), game.clone())? {
             GameService::start_countdown(game_service, game);
+        } else {
+            #[cfg(not(test))]
+            GameService::boardcast_game_end(game);
         }
         Ok(words)
     }

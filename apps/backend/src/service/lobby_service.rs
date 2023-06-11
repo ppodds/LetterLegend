@@ -157,17 +157,17 @@ impl LobbyService {
 mod tests {
     use super::*;
 
-    #[test]
-    fn create_lobby_with_test_user_should_create_lobby() -> Result<(), Box<dyn Error + Send + Sync>>
-    {
+    #[tokio::test]
+    async fn create_lobby_with_test_user_should_create_lobby(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         service.create_lobby(Arc::new(Player::new(0, String::from("test"))), 4)?;
         assert!(service.lobbies.lock().unwrap().get(&0).is_some());
         Ok(())
     }
 
-    #[test]
-    fn create_lobby_with_test_user_and_invaild_max_players_should_return_error(
+    #[tokio::test]
+    async fn create_lobby_with_test_user_and_invaild_max_players_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
@@ -176,8 +176,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn create_lobby_with_test_user_should_contains_test_user(
+    #[tokio::test]
+    async fn create_lobby_with_test_user_should_contains_test_user(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
@@ -193,8 +193,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn add_player_to_lobby_with_test_user_and_test_lobby_should_add_player_to_lobby(
+    #[tokio::test]
+    async fn add_player_to_lobby_with_test_user_and_test_lobby_should_add_player_to_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
@@ -212,8 +212,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn add_player_to_lobby_with_test_user_and_test_lobby_player_lobby_should_be_test_lobby(
+    #[tokio::test]
+    async fn add_player_to_lobby_with_test_user_and_test_lobby_player_lobby_should_be_test_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
@@ -225,8 +225,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_player_from_lobby_with_test_user_in_test_lobby_should_quit_lobby(
+    #[tokio::test]
+    async fn remove_player_from_lobby_with_test_user_in_test_lobby_should_quit_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
@@ -245,8 +245,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_player_from_lobby_with_leader_in_test_lobby_should_destroy_lobby(
+    #[tokio::test]
+    async fn remove_player_from_lobby_with_leader_in_test_lobby_should_destroy_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
@@ -256,8 +256,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_player_from_lobby_with_leader_should_destroy_lobby(
+    #[tokio::test]
+    async fn remove_player_from_lobby_with_leader_should_destroy_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let leader = Arc::new(Player::new(0, String::from("test")));
@@ -267,8 +267,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn get_lobbies_with_test_looby_should_return_test_lobby(
+    #[tokio::test]
+    async fn get_lobbies_with_test_looby_should_return_test_lobby(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         service.lobbies.lock().unwrap().insert(
@@ -284,9 +284,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_lobby_with_test_lobby_should_remove_lobby() -> Result<(), Box<dyn Error + Send + Sync>>
-    {
+    #[tokio::test]
+    async fn remove_lobby_with_test_lobby_should_remove_lobby(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let service = LobbyService::new();
         let lobby = Arc::new(Lobby::new(
             0,

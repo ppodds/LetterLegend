@@ -9,6 +9,7 @@ using UnityEngine.SceneManagement;
 public class Board : MonoBehaviour
 {
     public Timer timer;
+    public Dict dict;
     public PlayerShowText playerShowText;
     public GameObject block;
     private readonly List<GameObject> _blocks = new List<GameObject>();
@@ -77,6 +78,12 @@ public class Board : MonoBehaviour
             case GameEvent.FinishTurn:
                 playerShowText.SetPlayerName(res.CurrentPlayer, res.NextPlayer);
                 GameManager.Instance.SetPlayers(res.CurrentPlayer, res.NextPlayer);
+                SetBoard(res.Board);
+                if (res.Cards != null)
+                {
+                    _handField.SetHandField(res.Cards.Cards_.ToList());
+                }
+                dict.AddWord(res.Words.Words_.ToList());
                 timer.ResetCurrentTime();
                 break;
             default:

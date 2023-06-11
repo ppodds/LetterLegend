@@ -10,3 +10,4 @@ pub mod hand_card;
 pub mod set_tile;
 pub mod start;
 pub mod tile;
+pub mod words;

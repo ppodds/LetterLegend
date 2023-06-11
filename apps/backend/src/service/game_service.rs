@@ -2,6 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     error::Error,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 #[cfg(not(test))]
@@ -9,9 +10,15 @@ use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
 };
+use tokio::{task, time::sleep};
 
 use crate::{
-    game::{card::Card, game::Game, game_player::GamePlayer, tile::Tile},
+    game::{
+        card::Card,
+        game::{Game, END_GAME_TURN},
+        game_player::GamePlayer,
+        tile::Tile,
+    },
     lobby::lobby::Lobby,
     player::Player,
 };
@@ -60,7 +67,7 @@ impl GameService {
     }
 
     pub fn start_game(
-        &self,
+        game_service: Arc<GameService>,
         player: Arc<Player>,
         lobby: Arc<Lobby>,
     ) -> Result<Arc<Game>, Box<dyn Error + Send + Sync>> {
@@ -78,7 +85,7 @@ impl GameService {
             return Err("Not all players are ready".into());
         }
         let game = {
-            let mut next_id = self.next_game_id.lock().unwrap();
+            let mut next_id = game_service.next_game_id.lock().unwrap();
             let game = Arc::new(Game::new(
                 *next_id,
                 lobby
@@ -87,7 +94,11 @@ impl GameService {
                     .map(|x| x.player.clone())
                     .collect(),
             ));
-            self.games.lock().unwrap().insert(*next_id, game.clone());
+            game_service
+                .games
+                .lock()
+                .unwrap()
+                .insert(*next_id, game.clone());
             *next_id += 1;
             game
         };
@@ -112,9 +123,12 @@ impl GameService {
                                 current_player: Some(crate::model::player::player::Player::from(
                                     game.get_player_in_this_turn(),
                                 )),
-                                next_player: Some(crate::model::player::player::Player::from(
-                                    game.get_next_turn_player(),
-                                )),
+                                next_player: match game.get_next_turn_player() {
+                                    Some(game_player) => Some(
+                                        crate::model::player::player::Player::from(game_player),
+                                    ),
+                                    None => None,
+                                },
                             })),
                         ))
                         .await
@@ -124,11 +138,119 @@ impl GameService {
                 });
             }
         }
+        GameService::start_countdown(game_service, game.clone());
         Ok(game)
     }
 
     pub fn get_game(&self, id: u32) -> Option<Arc<Game>> {
         self.games.lock().unwrap().get(&id).cloned()
+    }
+
+    /**
+     * Finish turn. Return true if the game is ended.
+     */
+    fn finish_turn(
+        game_service: Arc<GameService>,
+        game: Arc<Game>,
+    ) -> Result<bool, Box<dyn Error + Send + Sync>> {
+        let player_in_this_turn = game.get_player_in_this_turn();
+        player_in_this_turn.get_new_card();
+        game.cancel_timeout_task();
+        game.next_turn();
+        game.backup_board();
+        if game.get_turns() > END_GAME_TURN {
+            game_service.clone().remove_game(game.clone())?;
+            #[cfg(not(test))]
+            GameService::boardcast_game_end(game);
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    #[cfg(not(test))]
+    fn send_finish_turn_broadcast(
+        game: Arc<Game>,
+        words: &Vec<String>,
+        origin_player: Arc<GamePlayer>,
+    ) {
+        for game_player in game.get_players() {
+            let game = game.clone();
+            let board = Some(crate::model::game::board::Board::from({
+                &game.get_board().lock().unwrap().clone()
+            }));
+            let words = Some(crate::model::game::words::Words::from(words));
+            let origin_player = origin_player.clone();
+            tokio::spawn(async move {
+                if let Err(e) = game_player
+                    .player
+                    .send_message(Response::new(
+                        State::GameBroadcast as u32,
+                        Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                            event: GameEvent::FinishTurn as i32,
+                            board,
+                            players: None,
+                            current_player: Some(crate::model::player::player::Player::from(
+                                game.get_player_in_this_turn(),
+                            )),
+                            next_player: match game.get_next_turn_player() {
+                                Some(game_player) => {
+                                    Some(crate::model::player::player::Player::from(game_player))
+                                }
+                                None => None,
+                            },
+                            words,
+                            cards: match game_player == origin_player {
+                                true => Some(crate::model::game::cards::Cards::from(
+                                    &origin_player.get_cards(),
+                                )),
+                                false => None,
+                            },
+                        })),
+                    ))
+                    .await
+                {
+                    eprintln!("Error sending game broadcast: {}", e);
+                }
+            });
+        }
+    }
+
+    fn start_countdown(game_service: Arc<GameService>, game: Arc<Game>) {
+        let game_bak = game.clone();
+        let task = Arc::new(task::spawn(async move {
+            sleep(Duration::from_secs(30)).await;
+            let _origin_player = game.get_player_in_this_turn();
+            match GameService::timeout_finish_turn(game_service, game.clone()) {
+                Ok(_words) => {
+                    #[cfg(not(test))]
+                    GameService::send_finish_turn_broadcast(game.clone(), &_words, _origin_player);
+                }
+                Err(e) => eprintln!("encounter error when finish turn: {}", e),
+            }
+        }));
+        game_bak.set_timeout_task(task);
+    }
+
+    pub fn timeout_finish_turn(
+        game_service: Arc<GameService>,
+        game: Arc<Game>,
+    ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
+        let words = match game
+            .get_board()
+            .lock()
+            .unwrap()
+            .validate(&game_service.wordlist)
+        {
+            Some(words) => words,
+            None => {
+                game.restore_board();
+                Vec::new()
+            }
+        };
+        if !GameService::finish_turn(game_service.clone(), game.clone())? {
+            GameService::start_countdown(game_service, game);
+        }
+        Ok(words)
     }
 
     pub fn remove_player_from_game(
@@ -161,6 +283,8 @@ impl GameService {
                                 )),
                                 current_player: None,
                                 next_player: None,
+                                words: None,
+                                cards: None,
                             })),
                         ))
                         .await
@@ -217,6 +341,8 @@ impl GameService {
                                 players: None,
                                 current_player: None,
                                 next_player: None,
+                                words: None,
+                                cards: None,
                             })),
                         ))
                         .await
@@ -228,45 +354,49 @@ impl GameService {
         }
     }
 
-    pub fn finish_turn(&self, game: Arc<Game>) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if !game.get_board().lock().unwrap().validate(&self.wordlist) {
-            return Err("invalid word".into());
-        }
-        let player_in_this_turn = game.get_player_in_this_turn();
-        player_in_this_turn.get_new_card();
-        game.next_turn();
-        #[cfg(not(test))]
-        {
-            for game_player in game.get_players() {
-                if game_player == player_in_this_turn {
-                    continue;
+    #[cfg(not(test))]
+    fn boardcast_game_end(game: Arc<Game>) {
+        for game_player in game.get_players() {
+            tokio::spawn(async move {
+                if let Err(e) = game_player
+                    .player
+                    .send_message(Response::new(
+                        State::GameBroadcast as u32,
+                        Arc::new(ResponseData::GameBroadcast(GameBroadcast {
+                            event: GameEvent::Destroy as i32,
+                            board: None,
+                            players: None,
+                            current_player: None,
+                            next_player: None,
+                            words: None,
+                            cards: None,
+                        })),
+                    ))
+                    .await
+                {
+                    eprintln!("Error sending game broadcast: {}", e);
                 }
-                let game = game.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = game_player
-                        .player
-                        .send_message(Response::new(
-                            State::GameBroadcast as u32,
-                            Arc::new(ResponseData::GameBroadcast(GameBroadcast {
-                                event: GameEvent::FinishTurn as i32,
-                                board: None,
-                                players: None,
-                                current_player: Some(crate::model::player::player::Player::from(
-                                    game.get_player_in_this_turn(),
-                                )),
-                                next_player: Some(crate::model::player::player::Player::from(
-                                    game.get_next_turn_player(),
-                                )),
-                            })),
-                        ))
-                        .await
-                    {
-                        eprintln!("Error sending game broadcast: {}", e);
-                    }
-                });
-            }
+            });
         }
-        Ok(())
+    }
+
+    pub fn validate_board_and_finish_turn(
+        game_service: Arc<GameService>,
+        game: Arc<Game>,
+    ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
+        let words = match game
+            .get_board()
+            .lock()
+            .unwrap()
+            .validate(&game_service.wordlist)
+        {
+            Some(words) => words,
+            None => return Err("invalid word".into()),
+        };
+        if !GameService::finish_turn(game_service.clone(), game.clone())? {
+            GameService::start_countdown(game_service, game);
+        }
+        Ok(words)
     }
 
     pub fn remove_selected_tile(&self, x: u32, y: u32, game: Arc<Game>) {
@@ -295,6 +425,8 @@ impl GameService {
                                 players: None,
                                 current_player: None,
                                 next_player: None,
+                                words: None,
+                                cards: None,
                             })),
                         ))
                         .await
@@ -333,6 +465,8 @@ impl GameService {
                                 players: None,
                                 current_player: None,
                                 next_player: None,
+                                words: None,
+                                cards: None,
                             })),
                         ))
                         .await
@@ -348,88 +482,141 @@ impl GameService {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
-    #[test]
-    fn start_game_with_test_player_in_test_lobby_should_start_game(
+    #[tokio::test]
+    async fn start_game_with_test_player_in_test_lobby_should_start_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new(HashSet::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let leader = Arc::new(Player::new(0, "test".to_string()));
         let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
         lobby.get_player(leader.id).unwrap().set_ready(true);
-        assert!(game_service.start_game(leader.clone(), lobby).is_ok());
+        assert!(GameService::start_game(game_service, leader.clone(), lobby).is_ok());
         Ok(())
     }
 
-    #[test]
-    fn start_game_with_test_player_not_in_lobby_should_return_error(
+    #[tokio::test]
+    async fn start_game_with_test_player_not_in_lobby_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new(HashSet::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let leader = Arc::new(Player::new(0, "test1".to_string()));
         let player = Arc::new(Player::new(1, "test2".to_string()));
-        assert!(game_service
-            .start_game(player, Arc::new(Lobby::new(0, 4, leader)))
-            .is_err());
+        assert!(
+            GameService::start_game(game_service, player, Arc::new(Lobby::new(0, 4, leader)))
+                .is_err()
+        );
         Ok(())
     }
 
-    #[test]
-    fn start_game_with_not_leader_should_return_error() -> Result<(), Box<dyn Error + Send + Sync>>
-    {
-        let game_service = GameService::new(HashSet::new());
+    #[tokio::test]
+    async fn start_game_with_not_leader_should_return_error(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let leader = Arc::new(Player::new(0, "test".to_string()));
         let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
         let player = Arc::new(Player::new(1, "test2".to_string()));
         lobby.add_player(player.clone())?;
-        assert!(game_service.start_game(player, lobby).is_err());
+        assert!(GameService::start_game(game_service, player, lobby).is_err());
         Ok(())
     }
 
-    #[test]
-    fn start_game_with_players_not_ready_should_return_error(
+    #[tokio::test]
+    async fn start_game_with_players_not_ready_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new(HashSet::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let leader = Arc::new(Player::new(0, "test".to_string()));
         let lobby = Arc::new(Lobby::new(0, 4, leader.clone()));
-        assert!(game_service.start_game(leader, lobby).is_err());
+        assert!(GameService::start_game(game_service, leader, lobby).is_err());
         Ok(())
     }
 
-    #[test]
-    fn finish_turn_when_board_is_broken_should_return_error(
+    #[tokio::test]
+    async fn validate_board_and_finish_turn_when_board_is_broken_should_return_error(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new(HashSet::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let player = Arc::new(Player::new(0, String::from("test1")));
         let player1 = Arc::new(Player::new(1, String::from("test2")));
         let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
         lobby.add_player(player1)?;
         lobby.get_player(0).unwrap().set_ready(true);
         lobby.get_player(1).unwrap().set_ready(true);
-        let game = game_service.start_game(player.clone(), lobby)?;
+        let game = GameService::start_game(game_service.clone(), player.clone(), lobby)?;
         {
             game.get_board().lock().unwrap().tiles[0][0] = Some(Tile::new('a', player.clone(), 1));
         }
-        assert!(game_service.finish_turn(game).is_err());
+        assert!(GameService::validate_board_and_finish_turn(game_service, game).is_err());
         Ok(())
     }
 
-    #[test]
-    fn finish_turn_when_board_is_legal_should_finish_turn(
+    #[tokio::test]
+    async fn validate_board_and_finish_turn_when_game_end_should_remove_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let game_service = GameService::new(HashSet::new());
+        let game_service = Arc::new(GameService::new(HashSet::new()));
         let player = Arc::new(Player::new(0, String::from("test1")));
         let player1 = Arc::new(Player::new(1, String::from("test2")));
         let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
         lobby.add_player(player1)?;
         lobby.get_player(0).unwrap().set_ready(true);
         lobby.get_player(1).unwrap().set_ready(true);
-        let game = game_service.start_game(player.clone(), lobby)?;
-        assert!(game_service.finish_turn(game).is_ok());
+        let game = GameService::start_game(game_service.clone(), player.clone(), lobby)?;
+        game.set_turn(END_GAME_TURN + 1);
+        GameService::validate_board_and_finish_turn(game_service.clone(), game)?;
+        assert_eq!(game_service.get_gamees().len(), 0);
         Ok(())
     }
 
-    #[test]
-    fn get_game_with_game_id_should_return_game() -> Result<(), Box<dyn Error + Send + Sync>> {
+    #[tokio::test]
+    async fn validate_board_and_finish_turn_when_game_not_end_should_not_remove_game(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = Arc::new(GameService::new(HashSet::new()));
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let player1 = Arc::new(Player::new(1, String::from("test2")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player1)?;
+        lobby.get_player(0).unwrap().set_ready(true);
+        lobby.get_player(1).unwrap().set_ready(true);
+        let game = GameService::start_game(game_service.clone(), player.clone(), lobby)?;
+        GameService::validate_board_and_finish_turn(game_service.clone(), game)?;
+        assert_eq!(game_service.get_gamees().len(), 1);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn validate_board_and_finish_turn_when_board_is_legal_should_success(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = Arc::new(GameService::new(HashSet::new()));
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let player1 = Arc::new(Player::new(1, String::from("test2")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player1)?;
+        lobby.get_player(0).unwrap().set_ready(true);
+        lobby.get_player(1).unwrap().set_ready(true);
+        let game = GameService::start_game(game_service.clone(), player.clone(), lobby)?;
+        assert!(GameService::validate_board_and_finish_turn(game_service, game).is_ok());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn timeout_finish_turn_when_times_up_should_success(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = Arc::new(GameService::new(HashSet::new()));
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let player1 = Arc::new(Player::new(1, String::from("test2")));
+        let lobby = Arc::new(Lobby::new(0, 4, player.clone()));
+        lobby.add_player(player1)?;
+        lobby.get_player(0).unwrap().set_ready(true);
+        lobby.get_player(1).unwrap().set_ready(true);
+        let game = GameService::start_game(game_service.clone(), player, lobby)?;
+        let turn_before = game.clone().get_turns();
+        GameService::finish_turn(game_service, game.clone())?;
+        assert!(turn_before + 1 == game.get_turns());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn get_game_with_game_id_should_return_game() -> Result<(), Box<dyn Error + Send + Sync>>
+    {
         let game_service = GameService::new(HashSet::new());
         game_service
             .games
@@ -440,8 +627,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_game_with_test_game_should_be_remove() -> Result<(), Box<dyn Error + Send + Sync>> {
+    #[tokio::test]
+    async fn remove_game_with_test_game_should_be_remove(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new(HashSet::new());
         let game = Arc::new(Game::new(0, Vec::new()));
         game_service.games.lock().unwrap().insert(0, game.clone());
@@ -450,8 +638,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_game_with_test_player_and_with_test_game_test_player_game_should_be_none(
+    #[tokio::test]
+    async fn remove_game_with_test_player_and_with_test_game_test_player_game_should_be_none(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new(HashSet::new());
         let player = Arc::new(Player::new(0, "test".to_string()));
@@ -462,8 +650,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn get_games_with_test_games_should_return_test_games(
+    #[tokio::test]
+    async fn get_games_with_test_games_should_return_test_games(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new(HashSet::new());
         let game1 = Arc::new(Game::new(0, Vec::new()));
@@ -477,8 +665,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_player_from_game_with_test_player_should_remove_the_player(
+    #[tokio::test]
+    async fn remove_player_from_game_with_test_player_should_remove_the_player(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new(HashSet::new());
         let player = Arc::new(Player::new(0, String::from("test1")));
@@ -496,8 +684,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_player_from_game_with_test_player_and_game_players_amount_equal_0_should_destroy_game(
+    #[tokio::test]
+    async fn remove_player_from_game_with_test_player_and_game_players_amount_equal_0_should_destroy_game(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new(HashSet::new());
         let player = Arc::new(Player::new(0, String::from("test1")));
@@ -509,8 +697,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_player_from_game_with_test_player_should_return_test_user(
+    #[tokio::test]
+    async fn remove_player_from_game_with_test_player_should_return_test_user(
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let game_service = GameService::new(HashSet::new());
         let player = Arc::new(Player::new(0, String::from("test1")));
@@ -519,6 +707,20 @@ mod tests {
         game_service.games.lock().unwrap().insert(0, game.clone());
         let game_player = game_service.remove_player_from_game(player.clone())?;
         assert_eq!(game_player.player, player);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn finish_turn_without_parameter_should_backup_board(
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let game_service = Arc::new(GameService::new(HashSet::new()));
+        let player = Arc::new(Player::new(0, String::from("test1")));
+        let game = Arc::new(Game::new(0, vec![player.clone()]));
+        player.set_game(Some(game.clone()));
+        game_service.games.lock().unwrap().insert(0, game.clone());
+        game.get_board().lock().unwrap().tiles[0][0] = Some(Tile::new('a', player, 1));
+        GameService::finish_turn(game_service, game.clone())?;
+        assert!(game.get_board_backup().tiles[0][0].is_some());
         Ok(())
     }
 }

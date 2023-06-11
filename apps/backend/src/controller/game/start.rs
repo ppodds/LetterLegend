@@ -54,7 +54,7 @@ impl Controller for StartController {
             Some(_) => return Err("player already in game".into()),
             None => (),
         };
-        let game = self.game_service.start_game(player.clone(), lobby)?;
+        let game = GameService::start_game(self.game_service.clone(), player.clone(), lobby)?;
         let game_player = match game.get_player(player.id) {
             Some(game_player) => game_player,
             None => return Err("find no player".into()),
@@ -70,9 +70,10 @@ impl Controller for StartController {
             current_player: Some(crate::model::player::player::Player::from(
                 game.get_player_in_this_turn(),
             )),
-            next_player: Some(crate::model::player::player::Player::from(
-                game.get_next_turn_player(),
-            )),
+            next_player: match game.get_next_turn_player() {
+                Some(game_player) => Some(crate::model::player::player::Player::from(game_player)),
+                None => None,
+            },
         }))
     }
 }
@@ -85,8 +86,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn handle_request_with_test_user_in_test_lobby_should_start_game(
+    #[tokio::test]
+    async fn handle_request_with_test_user_in_test_lobby_should_start_game(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let controller = StartController::new(
             Arc::new(PlayerService::new(

@@ -249,6 +249,7 @@ impl GameService {
             }
         };
         let _origin_player = game.get_player_in_this_turn();
+        game.get_player_in_this_turn().set_has_shuffled(false);
         if !GameService::finish_turn(game_service.clone(), game.clone())? {
             GameService::start_countdown(game_service, game.clone());
         }

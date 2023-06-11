@@ -122,7 +122,7 @@ mod tests {
             ),
             RequestContext { client_id: 0 },
         )?;
-        assert!(game.get_board().lock().unwrap().tiles[1][1].is_some());
+        assert!(game.get_board().lock().unwrap().tiles[25][1].is_some());
         Ok(())
     }
 

@@ -82,7 +82,6 @@ public class HandField : MonoBehaviour
 
             _selectBlockUI = block;
             _selectBlockPosition = _selectBlockUI.transform.position;
-            //Debug.Log(_selectBlockPosition);
             break;
         }
     }

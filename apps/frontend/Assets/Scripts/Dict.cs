@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 public class Dict : MonoBehaviour
 {
+    private List<string> _enWord;
     private List<string> _words;
     private TextMeshProUGUI _content;
     private UnityEngine.UI.Button _leftButton;
@@ -21,49 +22,52 @@ public class Dict : MonoBehaviour
         _rightButton = gameObject.transform.Find("NextButton").gameObject.transform.GetComponent<UnityEngine.UI.Button>();
         _words = new List<string>();
         gameObject.SetActive(false);
-        _leftButton.enabled = false;
-        _rightButton.enabled = false;
+        _enWord = new List<string>();
     }
 
     public void Close()
     {
-        _currentPage = -1;
-        _words.Clear();
         gameObject.SetActive(false);
-        _leftButton.enabled = false;
-        _rightButton.enabled = false;
     }
 
     public async void AddWord(List<string> newWords)
     {
-        _words.Clear();
-        
         foreach (var newWord in newWords)
         {
+            if (_enWord.Contains(newWord))
+            {
+                continue;
+            }
             var trans = await GetContent(newWord);
             _words.Add(newWord + ": " + trans);
+            _enWord.Add(newWord);
+            gameObject.SetActive(true);
         }
 
         if (_words.Count <= 0)
         {
             return;
         }
-        
-        gameObject.SetActive(true);
-        
-        _currentPage = 0;
-        _content.text = _words[_currentPage];
 
+        _currentPage = 0;
+        _content.text = _words[_words.Count - 1 - _currentPage];
+        
         if(_currentPage < _words.Count - 1)
         {
             _rightButton.enabled = true;
         }
+        else
+        {
+            _rightButton.enabled = false;
+        }
+
+        _leftButton.enabled = false;
     }
 
     public void NextPage()
     {
         _currentPage += 1;
-        _content.text = _words[_currentPage];
+        _content.text = _words[_words.Count - 1 - _currentPage];
         if (_currentPage == _words.Count - 1)
         {
             _rightButton.enabled = false;
@@ -75,11 +79,12 @@ public class Dict : MonoBehaviour
     public void PreviousPage()
     {
         _currentPage -= 1;
-        _content.text = _words[_currentPage];
+        _content.text = _words[_words.Count - 1 - _currentPage];
         if (_currentPage == 0)
         {
             _leftButton.enabled = false;
         }
+        
         _rightButton.enabled = true;
     }
 
@@ -92,7 +97,7 @@ public class Dict : MonoBehaviour
             RequestUri = new Uri("https://google-translate1.p.rapidapi.com/language/translate/v2"),
             Headers =
             {
-                { "X-RapidAPI-Key", "c2df73dcdemsh8788b04ba66a0d5p1a7d71jsnddb9d8debe41" },
+                { "X-RapidAPI-Key", "3a6fe42dd1msha1e07feb911decbp12cb54jsn2150bd1e6cc5" },
                 { "X-RapidAPI-Host", "google-translate1.p.rapidapi.com" },
             },
             Content = new FormUrlEncodedContent(new Dictionary<string, string>

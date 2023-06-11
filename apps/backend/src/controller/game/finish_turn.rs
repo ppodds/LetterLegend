@@ -60,10 +60,7 @@ impl Controller for FinishTurnController {
             Some(player) => Some(crate::model::player::player::Player::from(player)),
             None => None,
         };
-        match self
-            .game_service
-            .validate_board_and_finish_turn(game.clone())
-        {
+        match GameService::validate_board_and_finish_turn(self.game_service.clone(), game.clone()) {
             Ok(words) => Ok(ResponseData::FinishTurn(FinishTurnResponse {
                 success: true,
                 current_player: Some(crate::model::player::player::Player::from(
@@ -104,7 +101,7 @@ mod tests {
                 Arc::new(LobbyService::new()),
                 game_service.clone(),
             )),
-            game_service,
+            game_service.clone(),
         );
         let player = controller
             .player_service
@@ -113,7 +110,7 @@ mod tests {
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
-        let game = controller.game_service.start_game(player, lobby)?;
+        let game = GameService::start_game(game_service, player, lobby)?;
         let player_now = game.get_player_in_this_turn();
         assert!(controller
             .handle_request(
@@ -148,7 +145,7 @@ mod tests {
         let lobby_player1 = lobby.clone().get_player(player1.clone().id).unwrap();
         lobby_player.set_ready(true);
         lobby_player1.set_ready(true);
-        let game = controller.game_service.start_game(player, lobby)?;
+        let game = GameService::start_game(game_service, player, lobby)?;
         let player_now = game.get_player_in_this_turn();
         assert!(controller
             .handle_request(

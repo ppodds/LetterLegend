@@ -14,6 +14,7 @@ pub struct Game {
     players: Mutex<HashMap<u32, Arc<GamePlayer>>>,
     turn_queue: Mutex<LinkedList<Arc<GamePlayer>>>,
     board: Arc<Mutex<Board>>,
+    board_backup: Mutex<Board>,
     timeout: Mutex<Option<Arc<JoinHandle<()>>>>,
 }
 
@@ -40,6 +41,7 @@ impl Game {
             players: Mutex::new(map),
             turn_queue: Mutex::new(queue),
             board: Arc::new(Mutex::new(Board::new())),
+            board_backup: Mutex::new(Board::new()),
             timeout: Mutex::new(None),
         }
     }
@@ -70,6 +72,19 @@ impl Game {
 
     pub fn get_player(&self, id: u32) -> Option<Arc<GamePlayer>> {
         Some(self.players.lock().unwrap().get(&id)?.clone())
+    }
+
+    pub fn backup_board(&self) {
+        *self.board_backup.lock().unwrap() = self.board.lock().unwrap().clone();
+    }
+
+    pub fn restore_board(&self) {
+        *self.board.lock().unwrap() = self.board_backup.lock().unwrap().clone();
+    }
+
+    #[cfg(test)]
+    pub fn get_board_backup(&self) -> Board {
+        self.board_backup.lock().unwrap().clone()
     }
 
     pub fn get_players(&self) -> Vec<Arc<GamePlayer>> {

@@ -235,20 +235,22 @@ impl GameService {
         game_service: Arc<GameService>,
         game: Arc<Game>,
     ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
-        let words = match game
-            .get_board()
-            .lock()
-            .unwrap()
-            .validate(&game_service.wordlist)
-        {
+        let words = {
+            game.get_board()
+                .lock()
+                .unwrap()
+                .validate(&game_service.wordlist)
+        };
+        let words = match words {
             Some(words) => words,
             None => {
                 game.restore_board();
                 Vec::new()
             }
         };
+        let _origin_player = game.get_player_in_this_turn();
         if !GameService::finish_turn(game_service.clone(), game.clone())? {
-            GameService::start_countdown(game_service, game);
+            GameService::start_countdown(game_service, game.clone());
         }
         Ok(words)
     }
@@ -393,9 +395,12 @@ impl GameService {
             Some(words) => words,
             None => return Err("invalid word".into()),
         };
+        let _origin_player = game.get_player_in_this_turn();
         if !GameService::finish_turn(game_service.clone(), game.clone())? {
-            GameService::start_countdown(game_service, game);
+            GameService::start_countdown(game_service, game.clone());
         }
+        #[cfg(not(test))]
+        GameService::send_finish_turn_broadcast(game.clone(), &words, _origin_player);
         Ok(words)
     }
 

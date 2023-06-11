@@ -13,7 +13,7 @@ public class LobbyPanel : MonoBehaviour
     public GameObject roomPanel;
     public GameObject lobbyItem;
     public Transform lobbyListTransform;
-
+    public Button refreshButton;
     private async void Join(uint maxPlayers)
     {
         var lobby = await GameManager.Instance.GameTcpClient.CreateLobby(maxPlayers);
@@ -36,14 +36,36 @@ public class LobbyPanel : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    private async void OnEnable()
+    private void OnEnable()
     {
+        // var lobbyList = await GameManager.Instance.GameTcpClient.GetLobbies();
+        // if (lobbyList == null)
+        // {
+        //     return;
+        // }
+        //
+        // foreach (var lobbyInfo in lobbyList)
+        // {
+        //     var t = Instantiate(lobbyItem, lobbyListTransform).GetComponent<LobbyItem>();
+        //     t.LobbyInfo = lobbyInfo;
+        //     t.UpdateText();
+        // }
+        UpdateLobby();
+    }
+
+    private void OnDisable()
+    {
+        ClearList();
+    }
+
+    public async void UpdateLobby()
+    {
+        ClearList();
         var lobbyList = await GameManager.Instance.GameTcpClient.GetLobbies();
         if (lobbyList == null)
         {
             return;
         }
-
         foreach (var lobbyInfo in lobbyList)
         {
             var t = Instantiate(lobbyItem, lobbyListTransform).GetComponent<LobbyItem>();
@@ -51,8 +73,8 @@ public class LobbyPanel : MonoBehaviour
             t.UpdateText();
         }
     }
-
-    private void OnDisable()
+    
+    private void ClearList()
     {
         for (var i = 0; i < lobbyListTransform.childCount; i++) Destroy(lobbyListTransform.GetChild(i).gameObject);
     }

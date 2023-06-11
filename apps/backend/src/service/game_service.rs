@@ -14,6 +14,7 @@ use tokio::{task, time::sleep};
 
 use crate::{
     game::{
+        board::BOARD_SIZE,
         card::Card,
         game::{Game, END_GAME_TURN},
         game_player::GamePlayer,
@@ -330,7 +331,7 @@ impl GameService {
     }
 
     pub fn place_tile_on_board(&self, game: Arc<Game>, tile: Tile, x: usize, y: usize) {
-        game.get_board().lock().unwrap().tiles[x][y] = Some(tile);
+        game.get_board().lock().unwrap().tiles[BOARD_SIZE - y][x] = Some(tile);
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {

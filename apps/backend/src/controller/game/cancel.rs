@@ -101,7 +101,7 @@ mod tests {
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
-        let game = game_service.start_game(player.clone(), lobby.clone())?;
+        let game = GameService::start_game(game_service, player.clone(), lobby.clone())?;
         let tile = Tile::new('z', player, 1);
         controller
             .game_service
@@ -138,7 +138,7 @@ mod tests {
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
-        let game = game_service.start_game(player.clone(), lobby.clone())?;
+        let game = GameService::start_game(game_service, player.clone(), lobby.clone())?;
         let tile = Tile::new(
             game.get_player_in_this_turn().get_cards()[0].char,
             player,
@@ -179,7 +179,7 @@ mod tests {
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
-        let game = game_service.start_game(player.clone(), lobby.clone())?;
+        let game = GameService::start_game(game_service, player.clone(), lobby.clone())?;
         let tile = Tile::new(
             game.get_player_in_this_turn().get_cards()[0].char,
             player,

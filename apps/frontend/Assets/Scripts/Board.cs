@@ -149,12 +149,14 @@ public class Board : MonoBehaviour
     {
         var count = 0;
         Block targetBlock = null;
-        for (var i = 0; i < board.Rows.Count; i++)
+        for (var row = 0; row < board.Rows.Count; row++)
         {
-            for (var j = 0; j < board.Rows[i].Columns.Count; j++)
+            for (var col = 0; col < board.Rows[row].Columns.Count; col++)
             {
-                var blockComponent = _blocks[i * board.Rows.Count + j].GetComponent<Block>();
-                if (board.Rows[i].Columns[j].Tile != null)
+                var x = col;
+                var y = board.Rows.Count - row - 1;
+                var blockComponent = _blocks[x * board.Rows[0].Columns.Count + y].GetComponent<Block>();
+                if (board.Rows[row].Columns[col].Tile != null)
                 {
                     if (blockComponent.GetText() == "")
                     {
@@ -167,7 +169,7 @@ public class Board : MonoBehaviour
                         targetBlock.transform.Find("Square").transform.GetComponent<Animator>().Play("BlockUp");
                     }
 
-                    blockComponent.SetText(board.Rows[i].Columns[j].Tile.Char);
+                    blockComponent.SetText(board.Rows[row].Columns[col].Tile.Char);
                 }
                 else
                 {

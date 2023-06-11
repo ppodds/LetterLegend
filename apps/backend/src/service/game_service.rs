@@ -14,6 +14,7 @@ use tokio::{task, time::sleep};
 
 use crate::{
     game::{
+        board::BOARD_SIZE,
         card::Card,
         game::{Game, END_GAME_TURN},
         game_player::GamePlayer,
@@ -172,8 +173,12 @@ impl GameService {
         game: Arc<Game>,
         words: &Vec<String>,
         origin_player: Arc<GamePlayer>,
+        send_to_origin_player: bool,
     ) {
         for game_player in game.get_players() {
+            if game_player == origin_player && !send_to_origin_player {
+                continue;
+            }
             let game = game.clone();
             let board = Some(crate::model::game::board::Board::from({
                 &game.get_board().lock().unwrap().clone()
@@ -223,7 +228,12 @@ impl GameService {
             match GameService::timeout_finish_turn(game_service, game.clone()) {
                 Ok(_words) => {
                     #[cfg(not(test))]
-                    GameService::send_finish_turn_broadcast(game.clone(), &_words, _origin_player);
+                    GameService::send_finish_turn_broadcast(
+                        game.clone(),
+                        &_words,
+                        _origin_player,
+                        true,
+                    );
                 }
                 Err(e) => eprintln!("encounter error when finish turn: {}", e),
             }
@@ -236,10 +246,11 @@ impl GameService {
         game: Arc<Game>,
     ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
         let words = {
-            game.get_board()
+            game.clone()
+                .get_board()
                 .lock()
                 .unwrap()
-                .validate(&game_service.wordlist)
+                .validate(&game_service.wordlist, game.clone())
         };
         let words = match words {
             Some(words) => words,
@@ -249,6 +260,7 @@ impl GameService {
             }
         };
         let _origin_player = game.get_player_in_this_turn();
+        game.get_player_in_this_turn().set_has_shuffled(false);
         if !GameService::finish_turn(game_service.clone(), game.clone())? {
             GameService::start_countdown(game_service, game.clone());
         }
@@ -320,7 +332,7 @@ impl GameService {
     }
 
     pub fn place_tile_on_board(&self, game: Arc<Game>, tile: Tile, x: usize, y: usize) {
-        game.get_board().lock().unwrap().tiles[x][y] = Some(tile);
+        game.get_board().lock().unwrap().tiles[BOARD_SIZE - y][x] = Some(tile);
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
@@ -390,7 +402,7 @@ impl GameService {
             .get_board()
             .lock()
             .unwrap()
-            .validate(&game_service.wordlist)
+            .validate(&game_service.wordlist, game.clone())
         {
             Some(words) => words,
             None => return Err("invalid word".into()),
@@ -400,7 +412,7 @@ impl GameService {
             GameService::start_countdown(game_service, game.clone());
         }
         #[cfg(not(test))]
-        GameService::send_finish_turn_broadcast(game.clone(), &words, _origin_player);
+        GameService::send_finish_turn_broadcast(game.clone(), &words, _origin_player, false);
         Ok(words)
     }
 

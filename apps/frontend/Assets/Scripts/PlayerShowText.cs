@@ -1,6 +1,7 @@
 using System.Collections;
 using Protos.Player;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -22,7 +23,14 @@ public class PlayerShowText : MonoBehaviour
         {
             StartCoroutine(Shake());
         }
-        textMeshProUGUI.text = "current player: " + player1.Name + "\nnext player: " + player2.Name;
+
+        if (!Equals(player2,null))
+        {
+            textMeshProUGUI.text = "current player: " + player1.Name + "\nnext player: " + player2.Name;
+            return;
+        }
+
+        textMeshProUGUI.text = "current player: " + player1.Name + "\n";
     }
 
     private IEnumerator Shake()

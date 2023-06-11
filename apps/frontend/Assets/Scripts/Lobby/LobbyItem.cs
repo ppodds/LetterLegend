@@ -27,8 +27,7 @@ public class LobbyItem : MonoBehaviour
             Debug.Log("Join failed");
             return;
         }
-
-        Debug.Log(lobby);
+        
         GameManager.Instance.lobbyPanel.EnterRoom(lobby);
     }
 

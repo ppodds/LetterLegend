@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Protos.Game;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -17,7 +18,7 @@ public class Board : MonoBehaviour
     private Vector3 _boardMax;
     private Queue<GameBroadcast> _gameBroadcasts;
     private Camera _camera;
-
+    public Sprite block3D;
     private void Awake()
     {
         GameManager.Instance.GameTcpClient.Board = this;
@@ -104,6 +105,12 @@ public class Board : MonoBehaviour
 
             await GameManager.Instance.GameTcpClient.SetTile(blockComponent.GetX(), blockComponent.GetY(),
                 _handField.GetIndex().Value);
+            var sortId = SortingLayer.NameToID("Board");
+            blockComponent.transform.Find("Square").GetComponent<SpriteRenderer>().sortingLayerID = sortId;
+            blockComponent.transform.Find("Square").transform.Find("Text").GetComponent<TextMeshPro>().sortingLayerID = sortId;
+            blockComponent.transform.Find("Square").GetComponent<SpriteRenderer>().sprite = block3D;
+            blockComponent.transform.Find("Square").transform.GetComponent<Animator>().Play("BlockUp");
+            // blockComponent.transform.Find("Square").transform.position = new Vector3(0, 0.05f, 0);
             blockComponent.SetText(_handField.GetText());
             _handField.DeleteSelectObject();
             return;

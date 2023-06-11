@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class FinishTurn : MonoBehaviour
 {
+    public Dict dict;
     public Timer timer;
     private HandField _handField;
     public PlayerShowText playerShowText;
@@ -19,6 +20,8 @@ public class FinishTurn : MonoBehaviour
             timer.ResetCurrentTime();
             _handField.SetHandField(res.Item1);
             playerShowText.SetPlayerName(res.Item2, res.Item3);
+            GameManager.Instance.SetPlayers(res.Item2, res.Item3);
+            dict.AddWord(res.Item4);
         }
     }
 }

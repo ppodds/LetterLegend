@@ -40,6 +40,8 @@ fn main() -> Result<()> {
             "src/proto/game/get_new_card.proto",
             "src/proto/game/set_tile.proto",
             "src/proto/game/cancel.proto",
+            "src/proto/game/exit.proto",
+            "src/proto/game/words.proto",
         ],
         &["src/proto/"],
     )?;

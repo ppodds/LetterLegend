@@ -92,8 +92,8 @@ mod tests {
     };
 
     use super::*;
-    #[test]
-    fn handle_request_with_test_user_in_his_turn_should_set_tile(
+    #[tokio::test]
+    async fn handle_request_with_test_user_in_his_turn_should_set_tile(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = SetTileController::new(
@@ -101,7 +101,7 @@ mod tests {
                 Arc::new(LobbyService::new()),
                 game_service.clone(),
             )),
-            game_service,
+            game_service.clone(),
         );
         let player = controller
             .player_service
@@ -110,7 +110,7 @@ mod tests {
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
-        let game = controller.game_service.start_game(player, lobby)?;
+        let game = GameService::start_game(game_service, player, lobby)?;
         controller.handle_request(
             Request::new(
                 0,
@@ -126,8 +126,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_request_with_test_user_is_not_his_round_should_return_error(
+    #[tokio::test]
+    async fn handle_request_with_test_user_is_not_his_round_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = SetTileController::new(
@@ -135,7 +135,7 @@ mod tests {
                 Arc::new(LobbyService::new()),
                 game_service.clone(),
             )),
-            game_service,
+            game_service.clone(),
         );
         let player = controller
             .player_service
@@ -150,7 +150,7 @@ mod tests {
         let lobby_player1 = lobby.clone().get_player(player1.clone().id).unwrap();
         lobby_player.set_ready(true);
         lobby_player1.set_ready(true);
-        let game = controller.game_service.start_game(player, lobby)?;
+        let game = GameService::start_game(game_service, player, lobby)?;
         let player_now = game.get_player_in_this_turn();
         assert!(controller
             .handle_request(
@@ -174,8 +174,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn handle_request_with_test_user_set_tile_out_of_board_should_return_error(
+    #[tokio::test]
+    async fn handle_request_with_test_user_set_tile_out_of_board_should_return_error(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = SetTileController::new(

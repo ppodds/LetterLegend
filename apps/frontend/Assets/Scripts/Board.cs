@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Protos.Game;
+using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class Board : MonoBehaviour
 {
     public Timer timer;
+    public Dict dict;
     public PlayerShowText playerShowText;
     public GameObject block;
     private readonly List<GameObject> _blocks = new List<GameObject>();
@@ -15,7 +18,10 @@ public class Board : MonoBehaviour
     private Vector3 _boardMin;
     private Vector3 _boardMax;
     private Queue<GameBroadcast> _gameBroadcasts;
-
+    private Camera _camera;
+    public Sprite block3D;
+    public Sprite square;
+    
     private void Awake()
     {
         GameManager.Instance.GameTcpClient.Board = this;
@@ -33,10 +39,11 @@ public class Board : MonoBehaviour
             }
         }
 
-        _boardMin = new Vector3(_blocks[0].transform.position.x - scale,
-            _blocks[0].transform.position.y - scale, 0);
-        _boardMax = new Vector3(_blocks[26 * 26 - 1].transform.position.x + scale,
-            _blocks[26 * 26 - 1].transform.position.y + scale, 0);
+        _boardMin = new Vector3(_blocks[0].transform.position.x - scale / 2,
+            _blocks[0].transform.position.y - scale / 2, 0);
+        _boardMax = new Vector3(_blocks[26 * 26 - 1].transform.position.x + scale / 2,
+            _blocks[26 * 26 - 1].transform.position.y + scale / 2, 0);
+        _camera = Camera.main;
         _mouseEventSystem = MouseEventSystem.GetInstance();
         _mouseEventSystem.GetMouseReleasedEvent().AddListener(MouseReleased);
         _handField = HandField.GetInstance();
@@ -59,7 +66,8 @@ public class Board : MonoBehaviour
         switch (res.Event)
         {
             case GameEvent.Destroy:
-                //滾回房間
+                SceneManager.LoadScene(0);
+                //GameManager.Instance.QuitGame();
                 break;
             case GameEvent.Leave:
                 //Debug.Log(res.Players);
@@ -71,6 +79,13 @@ public class Board : MonoBehaviour
                 break;
             case GameEvent.FinishTurn:
                 playerShowText.SetPlayerName(res.CurrentPlayer, res.NextPlayer);
+                GameManager.Instance.SetPlayers(res.CurrentPlayer, res.NextPlayer);
+                SetBoard(res.Board);
+                if (res.Cards != null)
+                {
+                    _handField.SetHandField(res.Cards.Cards_.ToList());
+                }
+                dict.AddWord(res.Words.Words_.ToList());
                 timer.ResetCurrentTime();
                 break;
             default:
@@ -80,30 +95,31 @@ public class Board : MonoBehaviour
 
     private async void MouseReleased(Vector2 position)
     {
+        if (!_handField.GetSelectBlock() || _handField.GetIndex() == null
+                                         || !Equals(GameManager.Instance.GetCurrentPlayer(),
+                                             GameManager.Instance.GetMainPlayer()))
+        {
+            _handField.ResetPosition();
+            return;
+        }
+
         foreach (var tempBlock in _blocks)
         {
-            if (!tempBlock.GetComponent<Block>().Contains(position)
-                || tempBlock.GetComponent<Block>().GetText() != ""
-                || !_handField.GetSelectBlock())
+            var blockComponent = tempBlock.GetComponent<Block>();
+            if (!blockComponent.Contains(position)
+                || blockComponent.GetText() != "")
             {
                 continue;
             }
 
-            var index = _handField.GetIndex();
-            if (index == null)
-            {
-                throw new Exception("HandField GetIndex failed");
-            }
-
-            var x = tempBlock.GetComponent<Block>().GetX();
-            var y = tempBlock.GetComponent<Block>().GetY();
-            var res = await GameManager.Instance.GameTcpClient.SetTile(x, y, index.Value);
-            if (!res)
-            {
-                continue;
-            }
-
-            tempBlock.GetComponent<Block>().SetText(_handField.GetText());
+            await GameManager.Instance.GameTcpClient.SetTile(blockComponent.GetX(), blockComponent.GetY(),
+                _handField.GetIndex().Value);
+            var sortId = SortingLayer.NameToID("Board");
+            blockComponent.transform.Find("Square").GetComponent<SpriteRenderer>().sortingLayerID = sortId;
+            blockComponent.transform.Find("Square").transform.Find("Text").GetComponent<TextMeshPro>().sortingLayerID = sortId;
+            blockComponent.transform.Find("Square").GetComponent<SpriteRenderer>().sprite = block3D;
+            blockComponent.transform.Find("Square").transform.GetComponent<Animator>().Play("BlockUp");
+            blockComponent.SetText(_handField.GetText());
             _handField.DeleteSelectObject();
             return;
         }
@@ -131,19 +147,68 @@ public class Board : MonoBehaviour
 
     private void SetBoard(Protos.Game.Board board)
     {
+        var count = 0;
+        Block targetBlock = null;
         for (var i = 0; i < board.Rows.Count; i++)
         {
             for (var j = 0; j < board.Rows[i].Columns.Count; j++)
             {
+                var blockComponent = _blocks[i * board.Rows.Count + j].GetComponent<Block>();
                 if (board.Rows[i].Columns[j].Tile != null)
                 {
-                    _blocks[i * board.Rows.Count + j].GetComponent<Block>().SetText(board.Rows[i].Columns[j].Tile.Char);
+                    if (blockComponent.GetText() == "")
+                    {
+                        count++;
+                        targetBlock = blockComponent;
+                        var sortId = SortingLayer.NameToID("Board");
+                        targetBlock.transform.Find("Square").GetComponent<SpriteRenderer>().sortingLayerID = sortId;
+                        targetBlock.transform.Find("Square").transform.Find("Text").GetComponent<TextMeshPro>().sortingLayerID = sortId;
+                        targetBlock.transform.Find("Square").GetComponent<SpriteRenderer>().sprite = block3D;
+                        targetBlock.transform.Find("Square").transform.GetComponent<Animator>().Play("BlockUp");
+                    }
+
+                    blockComponent.SetText(board.Rows[i].Columns[j].Tile.Char);
                 }
                 else
                 {
-                    _blocks[i * board.Rows.Count + j].GetComponent<Block>().SetText("");
+                    if (blockComponent.GetText() != "")
+                    {
+                        count++;
+                        targetBlock = blockComponent;
+                        targetBlock.transform.Find("Square").GetComponent<SpriteRenderer>().sprite = square;
+                        targetBlock.transform.Find("Square").transform.position = new Vector3(0, -0.05f, 0);
+                        targetBlock.transform.Find("Square").GetComponent<SpriteRenderer>().sortingLayerID = 0;
+                        targetBlock.transform.Find("Square").transform.Find("Text").GetComponent<TextMeshPro>().sortingLayerID = 0;
+                        targetBlock.transform.Find("Square").transform.GetComponent<Animator>().Play("Idle");
+                    }
+
+                    blockComponent.SetText("");
                 }
             }
         }
+
+        if (count == 1)
+        {
+            StayFocus(targetBlock);
+        }
+    }
+
+    private void StayFocus(Block target)
+    {
+        var targetPosition = target.transform.position;
+        targetPosition.z = -10;
+        var screenRef = targetPosition - _camera.transform.position;
+
+        var screenBound = _camera.ScreenToWorldPoint(new Vector3(Screen.width, Screen.height, 0));
+        if (screenBound.x + screenRef.x > _boardMax.x) targetPosition.x -= (screenBound.x + screenRef.x - _boardMax.x);
+        if (screenBound.y + screenRef.y > _boardMax.y) targetPosition.y -= (screenBound.y + screenRef.y - _boardMax.y);
+
+        var cameraMinCoordinate = _camera.ViewportToWorldPoint(new Vector3(0, 0, 0));
+        if (cameraMinCoordinate.x + screenRef.x < _boardMin.x)
+            targetPosition.x -= (cameraMinCoordinate.x + screenRef.x - _boardMin.x);
+        if (cameraMinCoordinate.y + screenRef.y < _boardMin.y)
+            targetPosition.y -= (cameraMinCoordinate.y + screenRef.y - _boardMin.y);
+
+        _camera.transform.position = targetPosition;
     }
 }

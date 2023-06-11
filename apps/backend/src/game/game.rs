@@ -5,7 +5,8 @@ use std::{
 
 use super::{board::Board, game_player::GamePlayer};
 use crate::player::Player;
-
+pub const END_GAME_TURN: u32 = 16;
+use tokio::task::JoinHandle;
 #[derive(Debug)]
 pub struct Game {
     pub id: u32,
@@ -13,6 +14,8 @@ pub struct Game {
     players: Mutex<HashMap<u32, Arc<GamePlayer>>>,
     turn_queue: Mutex<LinkedList<Arc<GamePlayer>>>,
     board: Arc<Mutex<Board>>,
+    board_backup: Mutex<Board>,
+    timeout: Mutex<Option<Arc<JoinHandle<()>>>>,
 }
 
 impl PartialEq for Game {
@@ -25,7 +28,6 @@ impl Game {
     pub fn new(id: u32, players: Vec<Arc<Player>>) -> Self {
         let mut map = HashMap::new();
         let mut queue = LinkedList::new();
-
         for player in players {
             map.insert(player.id, Arc::new(GamePlayer::new(player.clone())));
         }
@@ -39,6 +41,24 @@ impl Game {
             players: Mutex::new(map),
             turn_queue: Mutex::new(queue),
             board: Arc::new(Mutex::new(Board::new())),
+            board_backup: Mutex::new(Board::new()),
+            timeout: Mutex::new(None),
+        }
+    }
+
+    pub fn set_timeout_task(&self, task: Arc<JoinHandle<()>>) {
+        *self.timeout.lock().unwrap() = Some(task);
+    }
+
+    pub fn cancel_timeout_task(&self) -> bool {
+        let mut task_mutex = self.timeout.lock().unwrap();
+        match task_mutex.as_ref() {
+            Some(task) => {
+                task.abort();
+                *task_mutex = None;
+                true
+            }
+            None => false,
         }
     }
 
@@ -52,6 +72,19 @@ impl Game {
 
     pub fn get_player(&self, id: u32) -> Option<Arc<GamePlayer>> {
         Some(self.players.lock().unwrap().get(&id)?.clone())
+    }
+
+    pub fn backup_board(&self) {
+        *self.board_backup.lock().unwrap() = self.board.lock().unwrap().clone();
+    }
+
+    pub fn restore_board(&self) {
+        *self.board.lock().unwrap() = self.board_backup.lock().unwrap().clone();
+    }
+
+    #[cfg(test)]
+    pub fn get_board_backup(&self) -> Board {
+        self.board_backup.lock().unwrap().clone()
     }
 
     pub fn get_players(&self) -> Vec<Arc<GamePlayer>> {
@@ -79,22 +112,33 @@ impl Game {
         self.turn_queue.lock().unwrap().front().unwrap().clone()
     }
 
-    pub fn get_next_turn_player(&self) -> Arc<GamePlayer> {
-        if self.get_players().len() == 1 {
-            return self.get_player_in_this_turn();
+    pub fn get_next_turn_player(&self) -> Option<Arc<GamePlayer>> {
+        if self.get_turns() >= END_GAME_TURN {
+            return None;
+        } else if self.get_players().len() == 1 {
+            return Some(self.get_player_in_this_turn());
         }
-        self.turn_queue
-            .lock()
-            .unwrap()
-            .iter()
-            .nth(1)
-            .unwrap()
-            .clone()
+        Some(
+            self.turn_queue
+                .lock()
+                .unwrap()
+                .iter()
+                .nth(1)
+                .unwrap()
+                .clone(),
+        )
+    }
+
+    #[cfg(test)]
+    pub fn set_turn(&self, turn: u32) {
+        *self.turn.lock().unwrap() = turn;
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use tokio::time::{sleep, Duration};
+
     use super::*;
 
     use std::error::Error;
@@ -114,29 +158,25 @@ mod tests {
     }
 
     #[test]
-    fn get_next_turn_player_without_parameter_should_return_next_player(
-    ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let player0 = Arc::new(Player::new(0, String::from("test")));
-        let player1 = Arc::new(Player::new(1, String::from("test1")));
-        let game = Game::new(0, vec![player0.clone(), player1.clone()]);
-        let players = game.get_players();
-        assert_eq!(
-            game.get_next_turn_player().player,
-            players.get(1).unwrap().player
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn get_next_turn_player_only_one_person_without_parameter_should_return_next_player(
+    fn get_next_turn_player_only_one_person_without_parameter_should_return_previous_player(
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let player0 = Arc::new(Player::new(0, String::from("test")));
         let game = Game::new(0, vec![player0.clone()]);
         let players = game.get_players();
-        assert_eq!(
-            game.get_next_turn_player().player,
-            players.get(0).unwrap().player
-        );
+        let next_player = game.get_next_turn_player().unwrap();
+        assert_eq!(next_player.player, players.get(0).unwrap().player);
+        Ok(())
+    }
+
+    #[test]
+    fn get_next_turn_player_only_one_person_exceed_end_game_turn_without_parameter_should_return_none(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let player0 = Arc::new(Player::new(0, String::from("test")));
+        let game = Game::new(0, vec![player0.clone()]);
+        for _i in 0..15 {
+            game.next_turn();
+        }
+        assert!(game.get_next_turn_player().is_none());
         Ok(())
     }
 
@@ -188,6 +228,30 @@ mod tests {
         game.next_turn();
         let person_second = game.get_player_in_this_turn();
         assert_ne!(person_second.player.id, person_first.player.id);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancel_timeout_task_with_exist_timeout_task_should_cancel_the_task_and_return_true(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let player = Arc::new(Player::new(0, String::from("test")));
+        let game = Game::new(0, vec![player.clone()]);
+        let task = Arc::new(tokio::spawn(async {
+            sleep(Duration::from_secs(1)).await;
+        }));
+        game.set_timeout_task(task.clone());
+        assert!(game.cancel_timeout_task());
+        sleep(Duration::from_millis(10)).await;
+        assert!(task.is_finished());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancel_timeout_task_with_none_should_return_false(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let player = Arc::new(Player::new(0, String::from("test")));
+        let game = Game::new(0, vec![player.clone()]);
+        assert!(!game.cancel_timeout_task());
         Ok(())
     }
 }

@@ -15,5 +15,6 @@
         FinishTurn,
         GetNewCard,
         Cancel,
+        Exit
     }
 }

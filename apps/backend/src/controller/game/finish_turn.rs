@@ -56,24 +56,27 @@ impl Controller for FinishTurnController {
         if request_game_player != game.get_player_in_this_turn() {
             return Err("Player not in his turn".into());
         }
-        match self.game_service.finish_turn(game.clone()) {
-            Ok(_) => Ok(ResponseData::FinishTurn(FinishTurnResponse {
+        match GameService::validate_board_and_finish_turn(self.game_service.clone(), game.clone()) {
+            Ok(words) => Ok(ResponseData::FinishTurn(FinishTurnResponse {
                 success: true,
                 current_player: Some(crate::model::player::player::Player::from(
                     game.get_player_in_this_turn(),
                 )),
-                next_player: Some(crate::model::player::player::Player::from(
-                    game.get_next_turn_player(),
-                )),
+                next_player: match game.get_next_turn_player() {
+                    Some(player) => Some(crate::model::player::player::Player::from(player)),
+                    None => None,
+                },
                 cards: Some(crate::model::game::cards::Cards::from(
                     &request_game_player.get_cards(),
                 )),
+                words: Some(crate::model::game::words::Words::from(&words)),
             })),
             Err(_) => Ok(ResponseData::FinishTurn(FinishTurnResponse {
                 success: false,
                 current_player: None,
                 next_player: None,
                 cards: None,
+                words: None,
             })),
         }
     }
@@ -88,15 +91,16 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn player_in_his_turn_finish_turn_should_success() -> Result<(), Box<dyn Error + Sync + Send>> {
+    #[tokio::test]
+    async fn player_in_his_turn_finish_turn_should_success(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let controller = FinishTurnController::new(
             Arc::new(PlayerService::new(
                 Arc::new(LobbyService::new()),
                 game_service.clone(),
             )),
-            game_service,
+            game_service.clone(),
         );
         let player = controller
             .player_service
@@ -105,7 +109,7 @@ mod tests {
         let lobby = lobby_service.create_lobby(player.clone(), 4)?;
         let lobby_player = lobby.clone().get_player(player.clone().id).unwrap();
         lobby_player.set_ready(true);
-        let game = controller.game_service.start_game(player, lobby)?;
+        let game = GameService::start_game(game_service, player, lobby)?;
         let player_now = game.get_player_in_this_turn();
         assert!(controller
             .handle_request(
@@ -118,9 +122,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn player_not_in_his_turn_finish_turn_should_fail() -> Result<(), Box<dyn Error + Sync + Send>>
-    {
+    #[tokio::test]
+    async fn player_not_in_his_turn_finish_turn_should_fail(
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let lobby_service = Arc::new(LobbyService::new());
         let game_service = Arc::new(GameService::new(HashSet::new()));
         let player_service = Arc::new(PlayerService::new(
@@ -140,7 +144,7 @@ mod tests {
         let lobby_player1 = lobby.clone().get_player(player1.clone().id).unwrap();
         lobby_player.set_ready(true);
         lobby_player1.set_ready(true);
-        let game = controller.game_service.start_game(player, lobby)?;
+        let game = GameService::start_game(game_service, player, lobby)?;
         let player_now = game.get_player_in_this_turn();
         assert!(controller
             .handle_request(

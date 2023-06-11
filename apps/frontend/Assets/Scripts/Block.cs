@@ -10,6 +10,7 @@ public class Block : MonoBehaviour
     private HandField _handField;
     private uint _x;
     private uint _y;
+    public Sprite square;
 
     private void Awake()
     {
@@ -37,6 +38,11 @@ public class Block : MonoBehaviour
 
         var res = await GameManager.Instance.GameTcpClient.Cancel(_x, _y);
         _handField.SetHandField(res);
+        transform.Find("Square").GetComponent<SpriteRenderer>().sprite = square;
+        transform.Find("Square").transform.position = new Vector3(0, -0.05f, 0);
+        transform.Find("Square").GetComponent<SpriteRenderer>().sortingLayerID = 0;
+        transform.Find("Square").transform.Find("Text").GetComponent<TextMeshPro>().sortingLayerID = 0;
+        transform.Find("Square").transform.GetComponent<Animator>().Play("Idle");
         _textMeshPro.text = "";
     }
 

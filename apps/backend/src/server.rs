@@ -9,7 +9,7 @@ use crate::controller::{
         heartbeat::HeartbeatController,
     },
     game::{
-        cancel::CancelController, finish_turn::FinishTurnController,
+        cancel::CancelController, exit::ExitController, finish_turn::FinishTurnController,
         get_new_card::GetNewCardController, set_tile::SetTileController, start::StartController,
     },
     lobby::{
@@ -233,6 +233,13 @@ impl Server {
             .register_controller(
                 Operation::FinishTurn,
                 Box::new(FinishTurnController::new(
+                    player_service.clone(),
+                    game_service.clone(),
+                )),
+            )
+            .register_controller(
+                Operation::Exit,
+                Box::new(ExitController::new(
                     player_service.clone(),
                     game_service.clone(),
                 )),

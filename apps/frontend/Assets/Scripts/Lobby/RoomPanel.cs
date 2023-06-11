@@ -75,6 +75,7 @@ public class RoomPanel : MonoBehaviour
 
     public void UpdateRoom()
     {
+        ClearList();
         foreach (var player in Lobby.Players)
         {
             var t = Instantiate(playerItem, playerListTransform).GetComponent<PlayerItem>();
@@ -91,6 +92,7 @@ public class RoomPanel : MonoBehaviour
     private void Awake()
     {
         GameManager.Instance.GameTcpClient.RoomPanel = this;
+        GameManager.Instance.SetRoomPanel(this);
         _lobbyBroadcasts = new Queue<LobbyBroadcast>();
     }
 

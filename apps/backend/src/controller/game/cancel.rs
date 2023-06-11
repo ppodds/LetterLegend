@@ -191,7 +191,7 @@ mod tests {
         controller.handle_request(
             Request::new(
                 0,
-                Arc::new(RequestData::Cancel(CancelRequest { x: 1, y: 1 })),
+                Arc::new(RequestData::Cancel(CancelRequest { x: 25, y: 1 })),
             ),
             RequestContext { client_id: 0 },
         )?;

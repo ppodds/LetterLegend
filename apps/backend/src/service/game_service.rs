@@ -246,10 +246,11 @@ impl GameService {
         game: Arc<Game>,
     ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
         let words = {
-            game.get_board()
+            game.clone()
+                .get_board()
                 .lock()
                 .unwrap()
-                .validate(&game_service.wordlist)
+                .validate(&game_service.wordlist, game.clone())
         };
         let words = match words {
             Some(words) => words,
@@ -401,7 +402,7 @@ impl GameService {
             .get_board()
             .lock()
             .unwrap()
-            .validate(&game_service.wordlist)
+            .validate(&game_service.wordlist, game.clone())
         {
             Some(words) => words,
             None => return Err("invalid word".into()),

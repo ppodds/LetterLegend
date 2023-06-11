@@ -160,6 +160,8 @@ impl GameService {
         game.backup_board();
         if game.get_turns() > END_GAME_TURN {
             game_service.clone().remove_game(game.clone())?;
+            #[cfg(not(test))]
+            GameService::boardcast_game_end(game);
             return Ok(true);
         }
         Ok(false)
@@ -247,9 +249,6 @@ impl GameService {
         };
         if !GameService::finish_turn(game_service.clone(), game.clone())? {
             GameService::start_countdown(game_service, game);
-        } else {
-            #[cfg(not(test))]
-            GameService::boardcast_game_end(game);
         }
         Ok(words)
     }
@@ -396,9 +395,6 @@ impl GameService {
         };
         if !GameService::finish_turn(game_service.clone(), game.clone())? {
             GameService::start_countdown(game_service, game);
-        } else {
-            #[cfg(not(test))]
-            GameService::boardcast_game_end(game);
         }
         Ok(words)
     }

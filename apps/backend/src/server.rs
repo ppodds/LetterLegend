@@ -68,7 +68,19 @@ impl Server {
                     let frame = match connection.read_frame().await {
                         Ok(Some(frame)) => frame,
                         Ok(None) => {
-                            continue;
+                            println!("connection closed by remote peer");
+                            if let Some(player) = server.player_service.get_player(client_id) {
+                                match server.player_service.remove_player(player) {
+                                    Ok(player) => println!(
+                                        "clean up player's resource success. player id: {}, player name: {}", player.id, player.name
+                                    ),
+                                    Err(e) => {
+                                        eprintln!("failed to clean up player's resource, err: {e}")
+                                    }
+                                }
+                            };
+                            shared_rx.lock().await.close();
+                            break;
                         }
                         Err(e) => {
                             eprintln!("failed to read frame; err = {:?}", e);

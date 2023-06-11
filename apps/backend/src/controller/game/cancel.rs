@@ -1,4 +1,5 @@
 use crate::frame::Request;
+use crate::game::board::BOARD_SIZE;
 use crate::model::game::cancel::CancelResponse;
 use crate::service::game_service::GameService;
 use crate::{
@@ -53,11 +54,13 @@ impl Controller for CancelController {
             None => return Err("Player not found".into()),
         };
 
-        let card =
-            match game.get_board().lock().unwrap().tiles[req.x as usize][req.y as usize].clone() {
-                Some(card) => card,
-                None => return Err("Card not in the hand".into()),
-            };
+        let card = match game.get_board().lock().unwrap().tiles[BOARD_SIZE - req.y as usize - 1]
+            [req.x as usize]
+            .clone()
+        {
+            Some(card) => card,
+            None => return Err("card not in the board".into()),
+        };
         if card.turn != game.get_turns() {
             return Err("card not place in this turn".into());
         }
@@ -111,7 +114,7 @@ mod tests {
             .handle_request(
                 Request::new(
                     0,
-                    Arc::new(RequestData::Cancel(CancelRequest { x: 1, y: 1 }))
+                    Arc::new(RequestData::Cancel(CancelRequest { x: 24, y: 1 }))
                 ),
                 RequestContext { client_id: 0 },
             )
@@ -185,13 +188,14 @@ mod tests {
             player,
             1,
         );
+        game.get_player_in_this_turn().get_cards()[0].used = true;
         controller
             .game_service
             .place_tile_on_board(game.clone(), tile, 1, 1);
         controller.handle_request(
             Request::new(
                 0,
-                Arc::new(RequestData::Cancel(CancelRequest { x: 25, y: 1 })),
+                Arc::new(RequestData::Cancel(CancelRequest { x: 24, y: 1 })),
             ),
             RequestContext { client_id: 0 },
         )?;

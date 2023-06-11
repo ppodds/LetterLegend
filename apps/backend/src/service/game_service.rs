@@ -332,7 +332,20 @@ impl GameService {
     }
 
     pub fn place_tile_on_board(&self, game: Arc<Game>, tile: Tile, x: usize, y: usize) {
-        game.get_board().lock().unwrap().tiles[BOARD_SIZE - y][x] = Some(tile);
+        let t = game.get_board();
+        let mut board = t.lock().unwrap();
+        println!("x: {x}, y: {y}");
+        board.tiles[BOARD_SIZE - y - 1][x] = Some(tile);
+        for i in 0..26 {
+            for j in 0..26 {
+                if board.tiles[i][j].is_some() {
+                    println!(
+                        "row: {i}, col: {j}, {:?}",
+                        board.tiles[i][j].clone().unwrap().char
+                    );
+                }
+            }
+        }
         #[cfg(not(test))]
         {
             for game_player in game.get_players() {
@@ -418,7 +431,11 @@ impl GameService {
 
     pub fn remove_selected_tile(&self, x: u32, y: u32, game: Arc<Game>) {
         {
-            game.get_board().lock().unwrap().tiles[x as usize][y as usize] = None;
+            game.get_board().lock().unwrap().tiles[(BOARD_SIZE - y as usize - 1) as usize]
+                [x as usize] = None;
+            println!("x: {x}, y: {y}");
+            let row = BOARD_SIZE - y as usize - 1;
+            println!("row: {row}, col: {x}");
         }
         #[cfg(not(test))]
         {

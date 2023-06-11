@@ -116,13 +116,13 @@ mod tests {
                 0,
                 Arc::new(RequestData::SetTile(SetTileRequest {
                     x: 1,
-                    y: 1,
+                    y: 2,
                     card_index: 1,
                 })),
             ),
             RequestContext { client_id: 0 },
         )?;
-        assert!(game.get_board().lock().unwrap().tiles[25][1].is_some());
+        assert!(game.get_board().lock().unwrap().tiles[23][1].is_some());
         Ok(())
     }
 

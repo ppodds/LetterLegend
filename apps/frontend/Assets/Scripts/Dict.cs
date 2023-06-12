@@ -97,7 +97,8 @@ public class Dict : MonoBehaviour
             RequestUri = new Uri("https://google-translate1.p.rapidapi.com/language/translate/v2"),
             Headers =
             {
-                { "X-RapidAPI-Key", "3a6fe42dd1msha1e07feb911decbp12cb54jsn2150bd1e6cc5" },
+                // TODO: change api key to env
+                { "X-RapidAPI-Key", "" },
                 { "X-RapidAPI-Host", "google-translate1.p.rapidapi.com" },
             },
             Content = new FormUrlEncodedContent(new Dictionary<string, string>

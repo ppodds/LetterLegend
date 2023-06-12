@@ -22,7 +22,7 @@ public class StartPanel : MonoBehaviour
     private string _playerName;
     private string _host;
     private int _port;
-
+    public Button exitButton;
     public void SetInput()
     {
         _playerName = nameField.text;

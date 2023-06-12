@@ -140,4 +140,9 @@ public class GameManager : MonoBehaviour
     {
         startPanel = tmpPanel;
     }
+    
+    public void QuitGame()
+    {
+        Application.Quit();
+    }
 }
